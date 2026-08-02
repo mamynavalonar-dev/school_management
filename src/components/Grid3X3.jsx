@@ -19,3 +19,5 @@ const Grid3X3 = ({ size = 24, color = 'currentColor', ...props }) => (
 );
 
 export default Grid3X3;
+
+

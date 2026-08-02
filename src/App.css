@@ -1,6 +1,6 @@
 /* src/App.css */
 :root {
-  --primary: #763fee;
+  --primary: #880ab6;
   --secondary: #ffffff;
   --icons: #ffffff;
   --text-primary: #1f2937;
@@ -490,3 +490,4 @@ body {
   margin-left: 0.5rem;
   color: inherit;
 }
+

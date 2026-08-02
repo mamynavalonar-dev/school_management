@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import apiService from '../../services/api.jsx';
+import apiService from '../../services/api';
 import soleilImg from '../../assets/soleil.jpg';
 import nuageImg from '../../assets/nuage.jpg';
 import './Auth.css';
@@ -211,3 +211,5 @@ const Auth = () => {
 };
 
 export default Auth;
+
+

@@ -116,7 +116,7 @@
       }
 
       .sidebar .list .item.logo a .text {
-        font-size: 2rem;
+        font-size: 1.6rem;
         font-weight: 500;
       }
 
@@ -245,19 +245,21 @@
 
      /* === Quand la sidebar est ouverte === */
 .sidebar.active .deconnexion {
-  width: 199px;
+  width: 222px;
+  height: 50px;
   border-radius: 40px;
 }
 
 .sidebar.active .deconnexion .sign {
   width: 30%;
   padding-left: 20px;
+  color: white;
 }
 
 .sidebar.active .deconnexion .text {
   opacity: 1;
   width: 70%;
-  padding-right: 10px;
+  padding-right: 5px;
 }
 
 /* === Quand la sidebar est fermée === */
@@ -269,9 +271,11 @@
 .sidebar:not(.active) .deconnexion .sign {
   width: 100%;
   padding-left: 0;
+  color: white;
 }
 
 .sidebar:not(.active) .deconnexion .text {
   opacity: 0;
   width: 0;
 }
+

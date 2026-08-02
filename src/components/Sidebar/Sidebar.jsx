@@ -15,12 +15,12 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
 
   const menuItems = [
     { id: 'dashboard', icon: Home, label: 'Tableau de bord' },
-    { id: 'students', icon: Users, label: 'Ã‰tudiants' },
+    { id: 'students', icon: Users, label: 'Étudiants' },
     { id: 'teachers', icon: UserCheck, label: 'Enseignants' },
-    { id: 'courses', icon: Book, label: 'Cours / MatiÃ¨res' },
+    { id: 'courses', icon: Book, label: 'Cours / Matières' },
     { id: 'rooms', icon: Building, label: 'Salles' },
     { id: 'planning', icon: Calendar, label: 'Planification' },
-    { id: 'evaluations', icon: ClipboardList, label: 'Ã‰valuations' },
+    { id: 'evaluations', icon: ClipboardList, label: 'Évaluations' },
     { id: 'grades', icon: GraduationCap, label: 'Notes' },
     { id: 'absences', icon: UserX, label: 'Absences' },
   ];
@@ -40,7 +40,7 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
   };
 
   const handleLogout = () => {
-    if (window.confirm('ÃŠtes-vous sÃ»r de vouloir vous dÃ©connecter ?')) {
+    if (window.confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
       logout();
     }
   };
@@ -50,7 +50,7 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
       <button
         className="toggle-btn"
         onClick={() => setIsOpen(!isOpen)}
-        aria-label={isOpen ? 'RÃ©duire la barre latÃ©rale' : 'Ouvrir la barre latÃ©rale'}
+        aria-label={isOpen ? 'Réduire la barre latérale' : 'Ouvrir la barre latérale'}
       >
         <ChevronRight size={20} />
       </button>
@@ -89,10 +89,12 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
 
       <button className="deconnexion" onClick={handleLogout}>
         <div className="sign"><LogOut size={17} /></div>
-        <div className="text">DÃ©connexion</div>
+        <div className="text">Déconnexion</div>
       </button>
     </aside>
   );
 };
 
 export default Sidebar;
+
+

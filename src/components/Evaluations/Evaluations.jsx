@@ -35,7 +35,7 @@ const Evaluations = () => {
   useEffect(() => {
     const mockEvaluations = [
       { id: 1, title: 'Examen Final - Programmation Web', course_name: 'Programmation Web', course_code: 'INFO301', teacher_name: 'Pierre Durand', room_name: 'B201', evaluation_type_name: 'Examen Final', evaluation_date: '2024-09-25', evaluation_time: '09:00', duration_minutes: 180, level_name: 'L3', specialization_name: 'Informatique', status: 'upcoming', registered_students: 28, completed_grades: 0 },
-      { id: 2, title: 'Partiel - MÃ©thodes NumÃ©riques', course_name: 'Analyse NumÃ©rique', course_code: 'MATH201', teacher_name: 'Marie Leblanc', room_name: 'A101', evaluation_type_name: 'Examen Partiel', evaluation_date: '2024-09-20', evaluation_time: '14:00', duration_minutes: 120, level_name: 'L2', specialization_name: 'MathÃ©matiques', status: 'completed', registered_students: 22, completed_grades: 22 },
+      { id: 2, title: 'Partiel - Méthodes Numériques', course_name: 'Analyse Numérique', course_code: 'MATH201', teacher_name: 'Marie Leblanc', room_name: 'A101', evaluation_type_name: 'Examen Partiel', evaluation_date: '2024-09-20', evaluation_time: '14:00', duration_minutes: 120, level_name: 'L2', specialization_name: 'Mathématiques', status: 'completed', registered_students: 22, completed_grades: 22 },
     ];
     setEvaluations(mockEvaluations);
   }, []);
@@ -87,9 +87,9 @@ const Evaluations = () => {
   };
 
   const handleDelete = (evaluationId) => {
-    if (window.confirm('ÃŠtes-vous sÃ»r de vouloir supprimer cette Ã©valuation ?')) {
+    if (window.confirm('Etes-vous sûr de vouloir supprimer cette valuation ?')) {
       setEvaluations(evaluations.filter(e => e.id !== evaluationId));
-      success('Ã‰valuation supprimÃ©e avec succÃ¨s');
+      success('Évaluation supprimée avec succès');
     }
   };
 
@@ -100,7 +100,7 @@ const Evaluations = () => {
       const newEvaluation = {
         id: Math.max(...evaluations.map(e => e.id), 0) + 1,
         title: formData.title,
-        course_name: formData.course_id === '1' ? 'Programmation Web' : 'Analyse NumÃ©rique',
+        course_name: formData.course_id === '1' ? 'Programmation Web' : 'Analyse Numérique',
         course_code: formData.course_id === '1' ? 'INFO301' : 'MATH201',
         teacher_name: formData.teacher_id === '1' ? 'Pierre Durand' : 'Marie Leblanc',
         room_name: formData.room_id === '1' ? 'A101' : 'B201',
@@ -115,7 +115,7 @@ const Evaluations = () => {
         completed_grades: 0
       };
       setEvaluations([...evaluations, newEvaluation]);
-      success('Ã‰valuation crÃ©Ã©e avec succÃ¨s');
+      success('Évaluation créée avec succès');
     } else if (modalType === 'edit') {
       setEvaluations(evaluations.map(e => 
         e.id === selectedEvaluation.id ? {
@@ -127,7 +127,7 @@ const Evaluations = () => {
           duration_minutes: formData.duration
         } : e
       ));
-      success('Ã‰valuation modifiÃ©e avec succÃ¨s');
+      success('Évaluation modifiée avec succès');
     }
     setShowModal(false);
   };
@@ -150,9 +150,9 @@ const Evaluations = () => {
   const getStatusLabel = (status) => {
     switch (status) {
       case 'draft': return 'Brouillon';
-      case 'upcoming': return 'Ã€ venir';
+      case 'upcoming': return 'À venir';
       case 'in_progress': return 'En cours';
-      case 'completed': return 'TerminÃ©';
+      case 'completed': return 'Terminé';
       default: return status;
     }
   };
@@ -160,39 +160,39 @@ const Evaluations = () => {
   return (
     <div className="evaluations-container p-6 animate-fade-in">
       <div className="header mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">Gestion des Ã‰valuations</h1>
-        <p className="text-gray-600 dark:text-gray-400">GÃ©rez les sessions d'examens et Ã©valuations</p>
+        <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-100 mb-2">Gestion des Évaluations</h1>
+        <p className="text-gray-600 dark:text-gray-400">Gérez les sessions d'examens et évaluations</p>
       </div>
       
       <div className="filters-bar bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-4 mb-6">
         <div className="flex flex-wrap items-center gap-4 mb-4">
           <div className="search-bar flex items-center bg-gray-50 dark:bg-gray-900 rounded-lg px-4 py-2 flex-1 min-w-64">
             <Search size={20} className="text-gray-400 mr-2" />
-            <input type="text" placeholder="Rechercher une Ã©valuation..." className="w-full outline-none bg-transparent" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            <input type="text" placeholder="Rechercher une évaluation..." className="w-full outline-none bg-transparent" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
           <button onClick={handleAdd} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors">
-            <Plus size={20}/>Nouvelle Ã©valuation
+            <Plus size={20}/>Nouvelle évaluation
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-4">
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="border dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-base">
+          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="border dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-2xl font-medium">
             <option value="">Tous les types</option>
             <option value="Examen Final">Examen Final</option>
             <option value="Examen Partiel">Examen Partiel</option>
           </select>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="border dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-base">
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="border dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-2xl font-medium">
             <option value="">Tous les statuts</option>
             <option value="draft">Brouillon</option>
-            <option value="upcoming">Ã€ venir</option>
+            <option value="upcoming">À venir</option>
             <option value="in_progress">En cours</option>
-            <option value="completed">TerminÃ©</option>
+            <option value="completed">Terminé</option>
           </select>
-          <select value={filterCourse} onChange={(e) => setFilterCourse(e.target.value)} className="border dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-base">
+          <select value={filterCourse} onChange={(e) => setFilterCourse(e.target.value)} className="border dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-2xl font-medium">
             <option value="">Tous les cours</option>
             <option value="Programmation Web">Programmation Web</option>
-            <option value="Analyse NumÃ©rique">Analyse NumÃ©rique</option>
+            <option value="Analyse Numérique">Analyse Numérique</option>
           </select>
-          <button onClick={() => { setFilterType(''); setFilterStatus(''); setFilterCourse(''); setSearchTerm(''); }} className="text-blue-600 hover:text-blue-800 text-base px-3 py-2">RÃ©initialiser</button>
+          <button onClick={() => { setFilterType(''); setFilterStatus(''); setFilterCourse(''); setSearchTerm(''); }} className="text-blue-600 hover:text-blue-800 text-2xl font-medium px-3 py-2">Réinitialiser</button>
         </div>
       </div>
       
@@ -201,17 +201,17 @@ const Evaluations = () => {
           <div key={evaluation.id} className="evaluation-card bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 hover:shadow-md transition-shadow p-6">
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">{evaluation.title}</h3>
-                <p className="text-base text-gray-500">{evaluation.course_name}</p>
+                <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-1">{evaluation.title}</h3>
+                <p className="text-2xl font-medium text-gray-500">{evaluation.course_name}</p>
               </div>
-              <span className={`px-2 py-1 rounded-full text-base ${getStatusColor(evaluation.status)}`}>
+              <span className={`px-4 py-2 rounded-full text-xl font-medium ${getStatusColor(evaluation.status)}`}>
                 {getStatusLabel(evaluation.status)}
               </span>
             </div>
-            <div className="space-y-2 text-base text-gray-700 dark:text-gray-300">
+            <div className="space-y-2 text-xl font-medium text-gray-700 dark:text-gray-300">
               <p className="flex items-center">
                 <Calendar size={16} className="mr-2"/>
-                {new Date(evaluation.evaluation_date).toLocaleDateString('fr-FR')} Ã  {evaluation.evaluation_time}
+                {new Date(evaluation.evaluation_date).toLocaleDateString('fr-FR')} à {evaluation.evaluation_time}
               </p>
               <p className="flex items-center">
                 <MapPin size={16} className="mr-2"/>
@@ -219,11 +219,11 @@ const Evaluations = () => {
               </p>
               <p className="flex items-center">
                 <Users size={16} className="mr-2"/>
-                {evaluation.registered_students} Ã©tudiants
+                {evaluation.registered_students} étudiants
               </p>
             </div>
-            <div className="flex justify-end space-x-2 mt-4 pt-4 border dark:border-gray-700-t">
-              <button onClick={() => handleView(evaluation)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full" title="Voir dÃ©tails">
+            <div className="flex justify-end space-x-2 mt-4 pt-4 ">
+              <button onClick={() => handleView(evaluation)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full" title="Voir détails">
                 <Eye size={18}/>
               </button>
               <button onClick={() => handleEdit(evaluation)} className="p-2 text-green-600 hover:bg-green-50 rounded-full" title="Modifier">
@@ -241,43 +241,43 @@ const Evaluations = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-6">
-              {modalType === 'add' && 'Nouvelle Ã‰valuation'}
-              {modalType === 'edit' && 'Modifier l\'Ã‰valuation'}
-              {modalType === 'view' && 'DÃ©tails de l\'Ã‰valuation'}
+              {modalType === 'add' && 'Nouvelle Évaluation'}
+              {modalType === 'edit' && 'Modifier l\'Évaluation'}
+              {modalType === 'view' && 'Détails de l\'Évaluation'}
             </h2>
 
             {modalType === 'view' && selectedEvaluation && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Titre</label>
-                    <p className="text-base text-gray-900">{selectedEvaluation.title}</p>
+                    <label className="block text-2xl font-medium text-gray-700 dark:text-gray-300">Titre</label>
+                    <p className="text-xl font-medium text-gray-900">{selectedEvaluation.title}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cours</label>
-                    <p className="text-base text-gray-900">{selectedEvaluation.course_name}</p>
+                    <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300">Cours</label>
+                    <p className="text-xl font-medium text-gray-900">{selectedEvaluation.course_name}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Enseignant</label>
-                    <p className="text-base text-gray-900">{selectedEvaluation.teacher_name}</p>
+                    <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300">Enseignant</label>
+                    <p className="text-xl font-medium text-gray-900">{selectedEvaluation.teacher_name}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Salle</label>
-                    <p className="text-base text-gray-900">{selectedEvaluation.room_name}</p>
+                    <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300">Salle</label>
+                    <p className="text-xl font-medium text-gray-900">{selectedEvaluation.room_name}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Date</label>
-                    <p className="text-base text-gray-900">
-                      {new Date(selectedEvaluation.evaluation_date).toLocaleDateString('fr-FR')} Ã  {selectedEvaluation.evaluation_time}
+                    <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300">Date</label>
+                    <p className="text-xl font-medium text-gray-900">
+                      {new Date(selectedEvaluation.evaluation_date).toLocaleDateString('fr-FR')} à {selectedEvaluation.evaluation_time}
                     </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">DurÃ©e</label>
-                    <p className="text-base text-gray-900">{selectedEvaluation.duration_minutes} minutes</p>
+                    <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300">Durée</label>
+                    <p className="text-xl font-medium text-gray-900">{selectedEvaluation.duration_minutes} minutes</p>
                   </div>
                 </div>
-                <div className="flex justify-end pt-4 border dark:border-gray-700-t">
-                  <button onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 text-gray-800 dark:text-gray-100 rounded-lg hover:bg-gray-300">
+                <div className="flex justify-end pt-4 ">
+                  <button onClick={() => setShowModal(false)} className="px-4 py-2 bg-blue-600 text-gray-800 dark:text-blue-100 rounded-lg hover:bg-blue-500">
                     Fermer
                   </button>
                 </div>
@@ -287,33 +287,33 @@ const Evaluations = () => {
             {(modalType === 'add' || modalType === 'edit') && (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-base font-medium text-gray-700 dark:text-gray-300 mb-1">Titre de l'Ã©valuation</label>
+                  <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Titre de l'évaluation</label>
                   <input type="text" name="title" value={formData.title} onChange={handleInputChange} required className="w-full border dark:border-gray-700 rounded-lg px-3 py-2" />
                 </div>
                 <div>
-                  <label className="block text-base font-medium text-gray-700 dark:text-gray-300 mb-1">Cours concernÃ©</label>
+                  <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Cours concerné</label>
                   <select name="course_id" value={formData.course_id} onChange={handleInputChange} required className="w-full border dark:border-gray-700 rounded-lg px-3 py-2">
-                    <option value="">SÃ©lectionner un cours</option>
+                    <option value="">Sélectionner un cours</option>
                     <option value="1">Programmation Web</option>
-                    <option value="2">Analyse NumÃ©rique</option>
+                    <option value="2">Analyse Numérique</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-base font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+                    <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Date</label>
                     <input type="date" name="date" value={formData.date} onChange={handleInputChange} required className="w-full border dark:border-gray-700 rounded-lg px-3 py-2" />
                   </div>
                   <div>
-                    <label className="block text-base font-medium text-gray-700 dark:text-gray-300 mb-1">Heure</label>
+                    <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Heure</label>
                     <input type="time" name="time" value={formData.time} onChange={handleInputChange} required className="w-full border dark:border-gray-700 rounded-lg px-3 py-2" />
                   </div>
                 </div>
-                <div className="flex justify-end pt-4 border dark:border-gray-700-t space-x-3">
+                <div className="flex justify-end pt-4 space-x-3">
                   <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 text-gray-800 dark:text-gray-100 rounded-lg hover:bg-gray-300">
                     Annuler
                   </button>
                   <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                    <Save size={18}/> {modalType === 'add' ? 'CrÃ©er' : 'Modifier'}
+                    <Save size={18}/> {modalType === 'add' ? 'Créer' : 'Modifier'}
                   </button>
                 </div>
               </form>
@@ -326,3 +326,5 @@ const Evaluations = () => {
 };
 
 export default Evaluations;
+
+

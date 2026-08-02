@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
-header("Access-Control-Allow-Origin: http://localhost:5173");
+header("Access-Control-Allow-Origin: http://localhost:5174");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Accept");
 header("Access-Control-Allow-Credentials: true");
@@ -9,6 +9,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
+
+require_once '../config/auth_guard.php';
 
 function send_json($code, $payload) {
     http_response_code($code);
@@ -53,6 +55,9 @@ try {
             break;
     }
 } catch (Throwable $e) {
-    send_json(500, ['success'=>false, 'message'=>'Erreur interne serveur : ' . $e->getMessage()]);
+    error_log("Throwable in dashboard.php: " . $e->getMessage());
+    send_json(500, ['success'=>false, 'message'=>'Une erreur serveur est survenue.']);
 }
 ?>
+
+

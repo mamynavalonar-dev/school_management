@@ -18,10 +18,10 @@ const Landing = ({ onStart }) => {
       </header>
       <main className="landing-main">
         <h1 className="landing-title">
-          Optimisez la Gestion de Votre UniversitÃ©
+          Optimisez la Gestion de Votre Université avec UniversityMS
         </h1>
         <p className="landing-subtitle">
-          Une solution complÃ¨te et intuitive pour les Ã©tudiants, les enseignants et l'administration.
+          Une solution complète et intuitive pour les étudiants, les enseignants et l'administration.
         </p>
         <button className="landing-button" onClick={onStart}>
           Commencer
@@ -33,3 +33,5 @@ const Landing = ({ onStart }) => {
 };
 
 export default Landing;
+
+

@@ -4,9 +4,9 @@ class Database {
     private $db_name = 'school_management';
     private $username = 'root';
     private $password = '';
-    private $conn;
+    private ?PDO $conn;
 
-    public function getConnection() {
+    public function getConnection(): ?PDO {
         $this->conn = null;
         try {
             $this->conn = new PDO(
@@ -16,10 +16,12 @@ class Database {
             $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } catch (PDOException $exception) {
             http_response_code(500);
-            echo json_encode(['success' => false, 'message' => "Erreur connexion BDD :" ]);
+            echo json_encode(['success' => false, 'message' => "Erreur connexion BDD: " . $exception->getMessage()]);
             exit();
         }
         return $this->conn;
     }
 }
 ?>
+
+

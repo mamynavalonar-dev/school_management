@@ -59,3 +59,5 @@ const NotificationToast = ({ notification, onRemove }) => {
 };
 
 export default NotificationToast;
+
+

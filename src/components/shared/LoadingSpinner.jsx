@@ -17,3 +17,5 @@ const LoadingSpinner = ({ size = 'md', text = 'Chargement...' }) => {
 };
 
 export default LoadingSpinner;
+
+

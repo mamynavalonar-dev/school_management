@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
-import apiService from '../services/api.jsx';
+import apiService from '../services/api';
 
 const ACTION_TYPES = {
   SET_LOADING: 'SET_LOADING',
@@ -255,3 +255,4 @@ export const useApp = () => {
 };
 
 export default AppContext;
+

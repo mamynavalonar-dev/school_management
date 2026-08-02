@@ -16,3 +16,5 @@ const NotificationsContainer = ({ notifications, removeNotification }) => {
 };
 
 export default NotificationsContainer;
+
+

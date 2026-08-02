@@ -1,7 +1,7 @@
 <?php
 require_once '../config/database.php';
 
-header("Access-Control-Allow-Origin: http://localhost:5173");
+header("Access-Control-Allow-Origin: http://localhost:5174");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 header("Access-Control-Allow-Credentials: true");
@@ -13,6 +13,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
+$secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'domain' => '',
+    'secure' => $secure,
+    'httponly' => true,
+    'samesite' => 'Strict'
+]);
 session_start();
 
 $database = new Database();
@@ -20,6 +29,10 @@ $db = $database->getConnection();
 
 $method = $_SERVER['REQUEST_METHOD'];
 $input = json_decode(file_get_contents("php://input"), true);
+// Handle case where data is sent as form-encoded instead of JSON
+if ($input === null && !empty($_POST)) {
+    $input = $_POST;
+}
 
 if ($method === 'POST') {
     // Détecte si login ou register
@@ -57,7 +70,7 @@ function register($db, $data) {
         return;
     }
 
-    $query = "INSERT INTO users (name, email, password, role) VALUES (:name, :email, :password, 'admin')";
+    $query = "INSERT INTO users (name, email, password, role) VALUES (:name, :email, :password, 'student')";
     $stmt = $db->prepare($query);
     $hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
 
@@ -125,7 +138,6 @@ function login($db, $data) {
     $_SESSION['LAST_ACTIVITY'] = time();
 
     // Définit une expiration de 30 min
-    ini_set('session.gc_maxlifetime', 1800);
 
     echo json_encode([
         'success' => true,
@@ -146,3 +158,5 @@ function logout() {
     echo json_encode(['success' => true, 'message' => 'Déconnexion réussie']);
 }
 ?>
+
+
