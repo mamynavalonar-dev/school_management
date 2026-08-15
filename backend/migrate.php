@@ -201,6 +201,133 @@ function missingFeaturePermissionsSchema(PDO $db): array {
  * La migration 003 reste nécessaire pour les bases historiques, mais elle
  * doit pouvoir être rejouée sans erreur sur une installation neuve.
  */
+
+/**
+ * Compatibilité MySQL 8.x :
+ * MySQL n'accepte pas "ALTER TABLE ... ADD COLUMN IF NOT EXISTS".
+ * Les migrations historiques restent inchangées et leur checksum reste intact.
+ * On adapte uniquement le SQL au moment de son exécution.
+ */
+function splitAlterTableClauses(string $body): array {
+    $parts = [];
+    $current = '';
+    $depth = 0;
+    $quote = null;
+    $length = strlen($body);
+
+    for ($i = 0; $i < $length; $i++) {
+        $char = $body[$i];
+
+        if ($quote !== null) {
+            $current .= $char;
+            if ($char === '\\' && $quote !== '`' && $i + 1 < $length) {
+                $current .= $body[++$i];
+                continue;
+            }
+            if ($char === $quote) {
+                if (($quote === "'" || $quote === '"') && $i + 1 < $length && $body[$i + 1] === $quote) {
+                    $current .= $body[++$i];
+                    continue;
+                }
+                $quote = null;
+            }
+            continue;
+        }
+
+        if ($char === "'" || $char === '"' || $char === '`') {
+            $quote = $char;
+            $current .= $char;
+            continue;
+        }
+        if ($char === '(') { $depth++; $current .= $char; continue; }
+        if ($char === ')') { if ($depth > 0) $depth--; $current .= $char; continue; }
+
+        if ($char === ',' && $depth === 0) {
+            $part = trim($current);
+            if ($part !== '') $parts[] = $part;
+            $current = '';
+            continue;
+        }
+
+        $current .= $char;
+    }
+
+    $part = trim($current);
+    if ($part !== '') $parts[] = $part;
+    return $parts;
+}
+
+function migrationColumnExists(PDO $db, string $table, string $column): bool {
+    static $databaseName = null;
+    static $stmt = null;
+
+    if ($databaseName === null) {
+        $databaseName = (string)$db->query('SELECT DATABASE()')->fetchColumn();
+    }
+    if ($stmt === null) {
+        $stmt = $db->prepare(
+            'SELECT COUNT(*) FROM information_schema.columns
+             WHERE table_schema = :schema_name
+               AND table_name = :table_name
+               AND column_name = :column_name'
+        );
+    }
+
+    $stmt->execute([
+        ':schema_name' => $databaseName,
+        ':table_name' => $table,
+        ':column_name' => $column,
+    ]);
+    return (int)$stmt->fetchColumn() > 0;
+}
+
+function prepareMigrationSqlForMySql(PDO $db, string $sql): string {
+    $pattern = '/ALTER\s+TABLE\s+`?([A-Za-z0-9_]+)`?\s+([^;]*\bADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\b[^;]*);/is';
+
+    $prepared = preg_replace_callback(
+        $pattern,
+        static function (array $match) use ($db): string {
+            $table = $match[1];
+            $clauses = splitAlterTableClauses($match[2]);
+            $kept = [];
+
+            foreach ($clauses as $clause) {
+                if (preg_match(
+                    '/^ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+`?([A-Za-z0-9_]+)`?\b/is',
+                    trim($clause),
+                    $columnMatch
+                ) === 1) {
+                    $column = $columnMatch[1];
+
+                    if (migrationColumnExists($db, $table, $column)) {
+                        fwrite(STDOUT, "[compat MySQL] {$table}.{$column} existe déjà : ajout ignoré.\n");
+                        continue;
+                    }
+
+                    $clause = preg_replace(
+                        '/^ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\b/i',
+                        'ADD COLUMN',
+                        trim($clause),
+                        1
+                    );
+                }
+
+                $kept[] = trim($clause);
+            }
+
+            if ($kept === []) return '';
+            return "ALTER TABLE `{$table}`\n    " . implode(",\n    ", $kept) . ';';
+        },
+        $sql
+    );
+
+    if ($prepared === null) {
+        throw new RuntimeException('Préparation SQL MySQL impossible.');
+    }
+
+    return $prepared;
+}
+
 function missingActivityTimestampsSchema(PDO $db): array {
     $databaseName = (string)$db->query('SELECT DATABASE()')->fetchColumn();
     $columnStmt = $db->prepare(
@@ -323,7 +450,8 @@ try {
         }
 
         fwrite(STDOUT, "[application] {$version}\n");
-        $db->exec($sql);
+        $migrationSql = prepareMigrationSqlForMySql($db, $sql);
+        $db->exec($migrationSql);
         $stmt = $db->prepare(
             'INSERT INTO schema_migrations (version, checksum) VALUES (:version, :checksum)'
         );

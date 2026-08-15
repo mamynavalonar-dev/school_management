@@ -3,6 +3,7 @@
  * Serveur WebSocket pour la messagerie (réécriture pour stabilité)
  */
 const http = require('http');
+const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 const mysql = require('mysql2/promise');
@@ -27,12 +28,21 @@ const debugLog = (...args) => {
   if (WS_DEBUG) console.log(...args);
 };
 
+const DB_SSL_CA = String(process.env.DB_SSL_CA || '').trim();
+const DB_SSL_VERIFY = !/^(0|false|no|off)$/i.test(String(process.env.DB_SSL_VERIFY || 'true').trim());
+let dbSsl;
+if (DB_SSL_CA) {
+  if (!fs.existsSync(DB_SSL_CA)) throw new Error(`Certificat CA MySQL introuvable : ${DB_SSL_CA}`);
+  dbSsl = { ca: fs.readFileSync(DB_SSL_CA, 'utf8'), rejectUnauthorized: DB_SSL_VERIFY };
+}
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: Number(process.env.DB_PORT || 3306),
   database: process.env.DB_NAME || 'school_management',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
+  ...(dbSsl ? { ssl: dbSsl } : {}),
   waitForConnections: true,
   connectionLimit: 10,
   // IMPORTANT : force mysql2 à traiter les colonnes DATETIME/TIMESTAMP

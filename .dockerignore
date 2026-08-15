@@ -1,0 +1,54 @@
+# Dépôt / éditeur
+.git
+.github
+.vscode
+.idea
+
+# Secrets et configuration locale
+.env
+.env.*
+!.env.example
+.env.docker.local
+backend-ws/.env
+backend-ws/.env.*
+
+# Dépendances et builds locaux
+node_modules
+backend-ws/node_modules
+backend/vendor
+dist
+coverage
+.vite
+.cache
+
+# Runtime / uploads
+storage/uploads
+backend/uploads
+uploads
+tmp
+temp
+
+# Sauvegardes et artefacts de correction
+correctif_backups
+copie_*.txt
+correctif_*.mjs
+correctif_*.patch
+appliquer_correctif_*.mjs
+appliquer_evolutions_v*.mjs
+preparer_github_avant_commit.mjs
+scripts/preparer_docker_render_*.mjs
+
+# Divers
+*.log
+*.tmp
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Aiven local secrets
+docker/aiven.env.local
+docker/secrets/*.pem
+docker/secrets/*.crt
+docker/secrets/*.key

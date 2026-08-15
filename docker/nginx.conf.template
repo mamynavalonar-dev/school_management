@@ -1,0 +1,56 @@
+server {
+    listen ${PORT};
+    server_name _;
+
+    root /var/www/frontend;
+    index index.html;
+    charset utf-8;
+    client_max_body_size 20m;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    location = /docker-health {
+        access_log off;
+        default_type application/json;
+        return 200 '{"status":"ok"}';
+    }
+
+    location ^~ /ws {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 75s;
+        proxy_send_timeout 75s;
+    }
+
+    location ^~ /uploads/profile-images/ {
+        alias /var/www/backend/uploads/profile-images/;
+        autoindex off;
+        add_header X-Content-Type-Options nosniff always;
+    }
+
+    location ~ ^/api/([A-Za-z0-9_-]+\.php)$ {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME /var/www/backend/api/$1;
+        fastcgi_param SCRIPT_NAME /api/$1;
+        fastcgi_param HTTP_AUTHORIZATION $http_authorization;
+        fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;
+        fastcgi_param HTTPS $https if_not_empty;
+        fastcgi_read_timeout 60s;
+        fastcgi_pass 127.0.0.1:9000;
+    }
+
+    location /api/ {
+        return 404;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

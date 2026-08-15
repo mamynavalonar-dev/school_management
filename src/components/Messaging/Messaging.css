@@ -2327,3 +2327,64 @@
   }
 }
 /* ========================================================================== */
+
+/* ========================================================================== */
+/* V7.21 — compose desktop compact et tooltip mieux espacé                    */
+/* ========================================================================== */
+@media (min-width: 761px) {
+  .floating-compose-launcher {
+    width: 5.35rem !important;
+    min-width: 5.35rem !important;
+    height: 5.35rem !important;
+    min-height: 5.35rem !important;
+    display: grid !important;
+    place-items: center !important;
+    padding: 0 !important;
+    border-radius: 999px !important;
+  }
+
+  .floating-compose-launcher > svg {
+    width: 1.75rem !important;
+    min-width: 1.75rem !important;
+    height: 1.75rem !important;
+    min-height: 1.75rem !important;
+    margin: 0 !important;
+    flex: 0 0 auto !important;
+  }
+
+  .floating-compose-launcher-wrap .group-hover\:opacity-100 {
+    right: 6.7rem !important;
+  }
+}
+/* ========================================================================== */
+
+/* ========================================================================== */
+/* V7.22 — tooltip Nouveau message aligné et renforcé                         */
+/* ========================================================================== */
+@media (min-width: 761px) {
+  /*
+   * On conserve volontairement l'écart horizontal réglé en V7.21.
+   * Le tooltip est simplement remonté et centré verticalement sur le
+   * square-pen, puis rendu un peu plus haut/épais.
+   */
+  .floating-compose-launcher-wrap .group-hover\:opacity-100 {
+    right: 6.7rem !important;
+    top: 50% !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+
+    min-height: 3.25rem !important;
+    padding: .72rem 1.35rem !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    background: #1f2937 !important;
+    border-radius: 999px !important;
+    font-weight: 700 !important;
+    line-height: 1.1 !important;
+    box-shadow: 0 7px 16px rgba(15, 23, 42, .24) !important;
+  }
+}
+/* ========================================================================== */
