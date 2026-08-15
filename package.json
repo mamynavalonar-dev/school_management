@@ -20,7 +20,12 @@
     "migrate": "php backend/migrate.php",
     "create:admin": "php backend/create-admin.php",
     "start:frontend": "vite --host",
-    "precommit:check": "node scripts/precommit-check.mjs"
+    "precommit:check": "node scripts/precommit-check.mjs",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f app",
+    "docker:ps": "docker compose ps"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

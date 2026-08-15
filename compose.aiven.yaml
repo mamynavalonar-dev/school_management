@@ -1,0 +1,13 @@
+services:
+  app:
+    environment:
+      DB_HOST: ${DB_HOST:?DB_HOST manquant dans docker/aiven.env.local}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME:-school_management}
+      DB_USER: ${DB_USER:?DB_USER manquant dans docker/aiven.env.local}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD manquant dans docker/aiven.env.local}
+      DB_SSL_CA: /run/secrets/aiven-ca.pem
+      DB_SSL_VERIFY: "true"
+      RUN_MIGRATIONS: "true"
+    volumes:
+      - ./docker/secrets/aiven-ca.pem:/run/secrets/aiven-ca.pem:ro

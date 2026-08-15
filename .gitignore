@@ -63,3 +63,16 @@ Desktop.ini
 *.tmp
 *.swp
 *.swo
+
+# Docker / déploiement local
+.env.docker.local
+docker-compose.override.yml
+scripts/preparer_docker_render_*.mjs
+preparer_docker_render_*.mjs
+LISEZ_MOI_DOCKER_PHASE1.txt
+
+# Aiven local secrets
+/docker/aiven.env.local
+/docker/secrets/*.pem
+/docker/secrets/*.crt
+/docker/secrets/*.key
