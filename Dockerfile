@@ -37,6 +37,17 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 RUN docker-php-ext-install pdo_mysql
 
+# Render secret files: allow php-fpm www-data to read /etc/secrets
+# Render monte les Secret Files avec un groupe dédié (GID 1000).
+# Les workers PHP-FPM tournent sous www-data : on les ajoute à ce groupe.
+RUN if getent group 1000 >/dev/null 2>&1; then \
+        secret_group="$(getent group 1000 | cut -d: -f1)"; \
+    else \
+        groupadd -g 1000 render-secrets; \
+        secret_group="render-secrets"; \
+    fi \
+    && usermod -a -G "$secret_group" www-data
+
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 
 WORKDIR /var/www
