@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Loader2 } from 'lucide-react';
 
 const LoadingSpinner = ({ size = 'md', text = 'Chargement...' }) => {
@@ -17,5 +17,3 @@ const LoadingSpinner = ({ size = 'md', text = 'Chargement...' }) => {
 };
 
 export default LoadingSpinner;
-
-

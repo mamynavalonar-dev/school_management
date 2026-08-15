@@ -1,10 +1,22 @@
-import { useState, useCallback } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 
-export const useNotifications = () => {
+const NotificationsContext = createContext(null);
+
+export const NotificationsProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
 
+  const removeNotification = useCallback((id) => {
+    setNotifications(prev => prev.filter(notification => notification.id !== id));
+  }, []);
+
   const addNotification = useCallback((notification) => {
-    const id = Date.now() + Math.random();
+    const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
     const newNotification = {
       id,
       type: 'info',
@@ -14,18 +26,7 @@ export const useNotifications = () => {
 
     setNotifications(prev => [...prev, newNotification]);
 
-    // Auto-remove notification after duration
-    if (newNotification.duration > 0) {
-      setTimeout(() => {
-        removeNotification(id);
-      }, newNotification.duration);
-    }
-
     return id;
-  }, []);
-
-  const removeNotification = useCallback((id) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
   }, []);
 
   const clearAll = useCallback(() => {
@@ -65,7 +66,7 @@ export const useNotifications = () => {
     });
   }, [addNotification]);
 
-  return {
+  const value = useMemo(() => ({
     notifications,
     addNotification,
     removeNotification,
@@ -74,6 +75,30 @@ export const useNotifications = () => {
     error,
     warning,
     info,
-  };
+  }), [
+    notifications,
+    addNotification,
+    removeNotification,
+    clearAll,
+    success,
+    error,
+    warning,
+    info,
+  ]);
+
+  return (
+    <NotificationsContext.Provider value={value}>
+      {children}
+    </NotificationsContext.Provider>
+  );
 };
 
+export const useNotifications = () => {
+  const context = useContext(NotificationsContext);
+
+  if (!context) {
+    throw new Error('useNotifications must be used within NotificationsProvider');
+  }
+
+  return context;
+};

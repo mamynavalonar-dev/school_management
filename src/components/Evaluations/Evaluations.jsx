@@ -1,10 +1,22 @@
-﻿import { useState, useEffect } from 'react';
+// src/components/Evaluations/Evaluations.jsx
+// Fichier complet avec les modifications
+
+import { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, Eye, Calendar, Clock, FileText, Users, MapPin, AlertCircle, Save } from 'lucide-react';
 import { useUi } from '../../context/UiContext';
+import { useApp } from '../../context/AppContext';
 import { useNotifications } from '../../hooks/useNotifications';
+import apiService, { uploadEvaluationSubject } from '../../services/api';
+import EvaluationSubjectPanel from './EvaluationSubjectPanel';
+import { canManageFeature } from '../../utils/permissions';
 
 const Evaluations = () => {
   const [evaluations, setEvaluations] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -12,38 +24,75 @@ const Evaluations = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('add');
   const [selectedEvaluation, setSelectedEvaluation] = useState(null);
+  const [subjectFile, setSubjectFile] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     course_id: '',
     teacher_id: '',
     room_id: '',
-    evaluation_type: '',
+    evaluation_type_id: '',
     date: '',
     time: '',
-    duration: 120
+    duration: 120,
+    status: 'upcoming'
   });
+
+  // État pour les types d'évaluation
+  const [evaluationTypes, setEvaluationTypes] = useState([]);
+
   const { intent, clearIntent } = useUi();
-  const { success } = useNotifications();
+  const { user } = useApp();
+  const { success, error: notifyError } = useNotifications();
+  const canManage = canManageFeature(user, 'evaluations');
+
+  // Chargement des données
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const evalsRes = await apiService.getEvaluations();
+        setEvaluations(evalsRes?.data ?? []);
+
+        const requests = [
+          apiService.getEvaluationTypes(),
+          apiService.getCourses(),
+          ...(canManage ? [apiService.getTeachers(), apiService.getRooms()] : []),
+        ];
+        const [typesResult, coursesResult, teachersResult, roomsResult] = await Promise.allSettled(requests);
+
+        if (typesResult?.status === 'fulfilled') setEvaluationTypes(typesResult.value?.data ?? []);
+        if (coursesResult?.status === 'fulfilled') setCourses(coursesResult.value?.data ?? []);
+        if (teachersResult?.status === 'fulfilled') setTeachers(teachersResult.value?.data ?? []);
+        if (roomsResult?.status === 'fulfilled') setRooms(roomsResult.value?.data ?? []);
+
+        if ([typesResult, coursesResult, teachersResult, roomsResult].some(result => result?.status === 'rejected')) {
+          notifyError("Certaines listes nécessaires n'ont pas pu être chargées.");
+        }
+      } catch (err) {
+        notifyError('Impossible de charger les évaluations.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [canManage, notifyError]);
 
   useEffect(() => {
     if (intent?.action === 'add') {
-      handleAdd();
+      if (canManage) {
+        handleAdd();
+      } else {
+        notifyError("Vous n'avez pas l'autorisation de créer une évaluation.");
+      }
       clearIntent();
     }
-  }, [intent, clearIntent]);
-
-  useEffect(() => {
-    const mockEvaluations = [
-      { id: 1, title: 'Examen Final - Programmation Web', course_name: 'Programmation Web', course_code: 'INFO301', teacher_name: 'Pierre Durand', room_name: 'B201', evaluation_type_name: 'Examen Final', evaluation_date: '2024-09-25', evaluation_time: '09:00', duration_minutes: 180, level_name: 'L3', specialization_name: 'Informatique', status: 'upcoming', registered_students: 28, completed_grades: 0 },
-      { id: 2, title: 'Partiel - Méthodes Numériques', course_name: 'Analyse Numérique', course_code: 'MATH201', teacher_name: 'Marie Leblanc', room_name: 'A101', evaluation_type_name: 'Examen Partiel', evaluation_date: '2024-09-20', evaluation_time: '14:00', duration_minutes: 120, level_name: 'L2', specialization_name: 'Mathématiques', status: 'completed', registered_students: 22, completed_grades: 22 },
-    ];
-    setEvaluations(mockEvaluations);
-  }, []);
+  }, [intent, clearIntent, canManage, notifyError]);
 
   const filteredEvaluations = evaluations.filter(evaluation =>
-    (evaluation.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     evaluation.course_name.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    (!filterType || evaluation.evaluation_type_name === filterType) &&
+    ((evaluation.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+     (evaluation.course_name || '').toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (!filterType || String(evaluation.evaluation_type_id) === filterType) &&
     (!filterStatus || evaluation.status === filterStatus) &&
     (!filterCourse || evaluation.course_name === filterCourse)
   );
@@ -51,31 +100,35 @@ const Evaluations = () => {
   const handleAdd = () => {
     setModalType('add');
     setSelectedEvaluation(null);
+    setSubjectFile(null);
     setFormData({
       title: '',
       course_id: '',
       teacher_id: '',
       room_id: '',
-      evaluation_type: '',
+      evaluation_type_id: '',
       date: new Date().toISOString().split('T')[0],
       time: '09:00',
-      duration: 120
+      duration: 120,
+      status: 'upcoming'
     });
     setShowModal(true);
   };
 
   const handleEdit = (evaluation) => {
     setModalType('edit');
+    setSubjectFile(null);
     setSelectedEvaluation(evaluation);
     setFormData({
       title: evaluation.title,
       course_id: evaluation.course_id || '',
       teacher_id: evaluation.teacher_id || '',
       room_id: evaluation.room_id || '',
-      evaluation_type: evaluation.evaluation_type_name,
+      evaluation_type_id: evaluation.evaluation_type_id || '',
       date: evaluation.evaluation_date,
       time: evaluation.evaluation_time,
-      duration: evaluation.duration_minutes
+      duration: evaluation.duration_minutes || 120,
+      status: evaluation.status || 'upcoming'
     });
     setShowModal(true);
   };
@@ -86,50 +139,56 @@ const Evaluations = () => {
     setShowModal(true);
   };
 
-  const handleDelete = (evaluationId) => {
-    if (window.confirm('Etes-vous sûr de vouloir supprimer cette valuation ?')) {
-      setEvaluations(evaluations.filter(e => e.id !== evaluationId));
-      success('Évaluation supprimée avec succès');
+  const handleDelete = async (evaluationId) => {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette évaluation ?')) {
+      try {
+        await apiService.deleteEvaluation(evaluationId);
+        setEvaluations(evaluations.filter(e => e.id !== evaluationId));
+        success('Évaluation supprimée avec succès');
+      } catch (err) {
+        notifyError(err.message || 'Erreur de suppression');
+      }
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (modalType === 'add') {
-      const newEvaluation = {
-        id: Math.max(...evaluations.map(e => e.id), 0) + 1,
-        title: formData.title,
-        course_name: formData.course_id === '1' ? 'Programmation Web' : 'Analyse Numérique',
-        course_code: formData.course_id === '1' ? 'INFO301' : 'MATH201',
-        teacher_name: formData.teacher_id === '1' ? 'Pierre Durand' : 'Marie Leblanc',
-        room_name: formData.room_id === '1' ? 'A101' : 'B201',
-        evaluation_type_name: formData.evaluation_type,
-        evaluation_date: formData.date,
-        evaluation_time: formData.time,
-        duration_minutes: formData.duration,
-        level_name: 'L3',
-        specialization_name: 'Informatique',
-        status: 'upcoming',
-        registered_students: 0,
-        completed_grades: 0
+    try {
+      setSubmitting(true);
+      const selectedCourse = courses.find(course => String(course.id) === String(formData.course_id));
+      const payload = {
+        ...formData,
+        course_id: Number(formData.course_id),
+        teacher_id: Number(formData.teacher_id),
+        room_id: Number(formData.room_id),
+        evaluation_type_id: Number(formData.evaluation_type_id),
+        duration: Number(formData.duration),
+        level_id: selectedCourse?.level_id ? Number(selectedCourse.level_id) : null,
+        specialization_id: selectedCourse?.specialization_id ? Number(selectedCourse.specialization_id) : null,
       };
-      setEvaluations([...evaluations, newEvaluation]);
-      success('Évaluation créée avec succès');
-    } else if (modalType === 'edit') {
-      setEvaluations(evaluations.map(e => 
-        e.id === selectedEvaluation.id ? {
-          ...e,
-          title: formData.title,
-          evaluation_type_name: formData.evaluation_type,
-          evaluation_date: formData.date,
-          evaluation_time: formData.time,
-          duration_minutes: formData.duration
-        } : e
-      ));
-      success('Évaluation modifiée avec succès');
+
+      if (modalType === 'add') {
+        const created = await apiService.createEvaluation(payload);
+        if (user?.role === 'teacher' && subjectFile && created?.id) {
+          await uploadEvaluationSubject(created.id, subjectFile);
+          success('Évaluation créée et sujet envoyé à la direction pour validation.');
+        } else {
+          success('Évaluation créée avec succès');
+        }
+        const evalsRes = await apiService.getEvaluations();
+        setEvaluations(evalsRes?.data ?? []);
+      } else if (modalType === 'edit') {
+        await apiService.updateEvaluation(selectedEvaluation.id, payload);
+        success('Évaluation modifiée avec succès');
+        const evalsRes = await apiService.getEvaluations();
+        setEvaluations(evalsRes?.data ?? []);
+      }
+      setShowModal(false);
+    } catch (err) {
+      notifyError(err.message || 'Erreur lors de l\'enregistrement');
+    } finally {
+      setSubmitting(false);
     }
-    setShowModal(false);
   };
 
   const handleInputChange = (e) => {
@@ -146,7 +205,7 @@ const Evaluations = () => {
       default: return 'bg-gray-100 text-gray-800 dark:text-gray-100';
     }
   };
-  
+
   const getStatusLabel = (status) => {
     switch (status) {
       case 'draft': return 'Brouillon';
@@ -170,15 +229,16 @@ const Evaluations = () => {
             <Search size={20} className="text-gray-400 mr-2" />
             <input type="text" placeholder="Rechercher une évaluation..." className="w-full outline-none bg-transparent" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
-          <button onClick={handleAdd} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors">
-            <Plus size={20}/>Nouvelle évaluation
-          </button>
+          {canManage && (
+            <button onClick={handleAdd} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors">
+              <Plus size={20}/>Nouvelle évaluation
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="border dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-2xl font-medium">
             <option value="">Tous les types</option>
-            <option value="Examen Final">Examen Final</option>
-            <option value="Examen Partiel">Examen Partiel</option>
+            {evaluationTypes.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}
           </select>
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="border dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-2xl font-medium">
             <option value="">Tous les statuts</option>
@@ -189,8 +249,7 @@ const Evaluations = () => {
           </select>
           <select value={filterCourse} onChange={(e) => setFilterCourse(e.target.value)} className="border dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-2xl font-medium">
             <option value="">Tous les cours</option>
-            <option value="Programmation Web">Programmation Web</option>
-            <option value="Analyse Numérique">Analyse Numérique</option>
+            {courses.map(course => <option key={course.id} value={course.name}>{course.name}</option>)}
           </select>
           <button onClick={() => { setFilterType(''); setFilterStatus(''); setFilterCourse(''); setSearchTerm(''); }} className="text-blue-600 hover:text-blue-800 text-2xl font-medium px-3 py-2">Réinitialiser</button>
         </div>
@@ -222,23 +281,33 @@ const Evaluations = () => {
                 {evaluation.registered_students} étudiants
               </p>
             </div>
-            <div className="flex justify-end space-x-2 mt-4 pt-4 ">
+            <div className="flex justify-end space-x-2 mt-4 pt-4">
               <button onClick={() => handleView(evaluation)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full" title="Voir détails">
                 <Eye size={18}/>
               </button>
-              <button onClick={() => handleEdit(evaluation)} className="p-2 text-green-600 hover:bg-green-50 rounded-full" title="Modifier">
-                <Edit size={18}/>
-              </button>
-              <button onClick={() => handleDelete(evaluation.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-full" title="Supprimer">
-                <Trash2 size={18}/>
-              </button>
+              {canManage && (
+                <>
+                  <button onClick={() => handleEdit(evaluation)} className="p-2 text-green-600 hover:bg-green-50 rounded-full" title="Modifier">
+                    <Edit size={18}/>
+                  </button>
+                  <button onClick={() => handleDelete(evaluation.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-full" title="Supprimer">
+                    <Trash2 size={18}/>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ))}
       </div>
 
+      {(loading || filteredEvaluations.length === 0) && (
+        <div className="p-8 text-center text-gray-500">
+          {loading ? 'Chargement des évaluations...' : 'Aucune évaluation trouvée'}
+        </div>
+      )}
+
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="app-modal-layer bg-black bg-opacity-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-6">
               {modalType === 'add' && 'Nouvelle Évaluation'}
@@ -276,7 +345,8 @@ const Evaluations = () => {
                     <p className="text-xl font-medium text-gray-900">{selectedEvaluation.duration_minutes} minutes</p>
                   </div>
                 </div>
-                <div className="flex justify-end pt-4 ">
+                <EvaluationSubjectPanel evaluation={selectedEvaluation} user={user} />
+                <div className="flex justify-end pt-4">
                   <button onClick={() => setShowModal(false)} className="px-4 py-2 bg-blue-600 text-gray-800 dark:text-blue-100 rounded-lg hover:bg-blue-500">
                     Fermer
                   </button>
@@ -294,8 +364,34 @@ const Evaluations = () => {
                   <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Cours concerné</label>
                   <select name="course_id" value={formData.course_id} onChange={handleInputChange} required className="w-full border dark:border-gray-700 rounded-lg px-3 py-2">
                     <option value="">Sélectionner un cours</option>
-                    <option value="1">Programmation Web</option>
-                    <option value="2">Analyse Numérique</option>
+                    {courses.map(course => <option key={course.id} value={course.id}>{course.name}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Enseignant</label>
+                    <select name="teacher_id" value={formData.teacher_id} onChange={handleInputChange} required className="w-full border dark:border-gray-700 rounded-lg px-3 py-2">
+                      <option value="">Sélectionner un enseignant</option>
+                      {teachers.map(teacher => (
+                        <option key={teacher.id} value={teacher.id}>
+                          {[teacher.first_name, teacher.last_name].filter(Boolean).join(' ') || teacher.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Salle</label>
+                    <select name="room_id" value={formData.room_id} onChange={handleInputChange} required className="w-full border dark:border-gray-700 rounded-lg px-3 py-2">
+                      <option value="">Sélectionner une salle</option>
+                      {rooms.map(room => <option key={room.id} value={room.id}>{room.name} ({room.number})</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Type d'évaluation</label>
+                  <select name="evaluation_type_id" value={formData.evaluation_type_id} onChange={handleInputChange} required className="w-full border dark:border-gray-700 rounded-lg px-3 py-2">
+                    <option value="">Sélectionner un type</option>
+                    {evaluationTypes.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -308,12 +404,39 @@ const Evaluations = () => {
                     <input type="time" name="time" value={formData.time} onChange={handleInputChange} required className="w-full border dark:border-gray-700 rounded-lg px-3 py-2" />
                   </div>
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Durée (minutes)</label>
+                    <input type="number" name="duration" min="1" max="1440" value={formData.duration} onChange={handleInputChange} required className="w-full border dark:border-gray-700 rounded-lg px-3 py-2" />
+                  </div>
+                  {modalType === 'edit' && (
+                    <div>
+                      <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Statut</label>
+                      <select name="status" value={formData.status} onChange={handleInputChange} className="w-full border dark:border-gray-700 rounded-lg px-3 py-2">
+                        <option value="draft">Brouillon</option>
+                        <option value="upcoming">À venir</option>
+                        <option value="in_progress">En cours</option>
+                        <option value="completed">Terminé</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+                {modalType === 'add' && user?.role === 'teacher' && (
+                  <div className="rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-4">
+                    <label className="block text-xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Sujet de l’évaluation (facultatif à la création)</label>
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onChange={(event) => setSubjectFile(event.target.files?.[0] || null)} className="w-full border dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800" />
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">Le sujet sera placé en attente. Un directeur ou administrateur devra le valider. L’étudiant ne pourra le télécharger que le jour de l’évaluation.</p>
+                  </div>
+                )}
+                {modalType === 'add' && ['admin', 'directeur'].includes(user?.role) && (
+                  <p className="rounded-xl bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 p-3 text-sm text-gray-600 dark:text-gray-300">Le sujet est déposé par l’enseignant responsable après la création de l’évaluation, puis validé par la direction.</p>
+                )}
                 <div className="flex justify-end pt-4 space-x-3">
                   <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 text-gray-800 dark:text-gray-100 rounded-lg hover:bg-gray-300">
                     Annuler
                   </button>
-                  <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                    <Save size={18}/> {modalType === 'add' ? 'Créer' : 'Modifier'}
+                  <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2">
+                    <Save size={18}/> {submitting ? 'Enregistrement...' : (modalType === 'add' ? 'Créer' : 'Modifier')}
                   </button>
                 </div>
               </form>
@@ -326,5 +449,3 @@ const Evaluations = () => {
 };
 
 export default Evaluations;
-
-

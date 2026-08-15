@@ -1,0 +1,7 @@
+{
+    "name": "school-management/backend",
+    "description": "Backend PHP de l'application de gestion universitaire",
+    "require": {
+        "vlucas/phpdotenv": "^5.6"
+    }
+}

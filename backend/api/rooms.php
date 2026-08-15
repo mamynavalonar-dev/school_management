@@ -1,7 +1,8 @@
 <?php
-header("Access-Control-Allow-Origin: http://localhost:5174");
+require_once '../config/cors.php';
+applyCorsOrigin();
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-CSRF-Token");
 header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -11,6 +12,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../config/auth_guard.php';
+require_once '../config/csrf_guard.php';
+
+// Role-based access control
+$allowedRoles = [];
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $allowedRoles = ['admin', 'directeur', 'teacher', 'student'];
+} else {
+    // POST, PUT, DELETE
+    $allowedRoles = ['admin', 'directeur'];
+}
+if (!in_array($_SESSION['user_role'], $allowedRoles)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Accès refusé - rôle non autorisé']);
+    exit();
+}
 
 $database = new Database();
 $db = $database->getConnection();
@@ -23,7 +39,7 @@ try {
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'data' => $rows]);
     } elseif ($method === 'POST') {
-        $sql = "INSERT INTO rooms (number, name, building, floor, capacity, room_type, equipment, is_available, maintenance_date) 
+        $sql = "INSERT INTO rooms (number, name, building, floor, capacity, room_type, equipment, is_available, maintenance_date)
                 VALUES (:number, :name, :building, :floor, :capacity, :room_type, :equipment, :is_available, :maintenance_date)";
         $stmt = $db->prepare($sql);
         $stmt->execute([
@@ -70,5 +86,3 @@ try {
     echo json_encode(['success' => false, 'message' => 'Une erreur serveur est survenue.']);
 }
 ?>
-
-

@@ -1,4 +1,4 @@
-﻿import React, { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react';
 
 const NotificationToast = ({ notification, onRemove }) => {
@@ -27,16 +27,16 @@ const NotificationToast = ({ notification, onRemove }) => {
   };
 
   const getStyles = () => {
-    const baseStyles = "flex items-center p-4 mb-3 rounded-lg shadow-lg border dark:border-gray-700-l-4 max-w-md";
+    const baseStyles = "flex items-center p-4 mb-3 rounded-lg shadow-lg border-l-4 max-w-md";
     switch (type) {
       case 'success':
-        return `${baseStyles} bg-green-50 border dark:border-gray-700-green-400 text-green-800`;
+        return `${baseStyles} bg-green-50 border-green-400 text-green-800`;
       case 'error':
-        return `${baseStyles} bg-red-50 border dark:border-gray-700-red-400 text-red-800`;
+        return `${baseStyles} bg-red-50 border-red-400 text-red-800`;
       case 'warning':
-        return `${baseStyles} bg-yellow-50 border dark:border-gray-700-yellow-400 text-yellow-800`;
+        return `${baseStyles} bg-yellow-50 border-yellow-400 text-yellow-800`;
       default:
-        return `${baseStyles} bg-blue-50 border dark:border-gray-700-blue-400 text-blue-800`;
+        return `${baseStyles} bg-blue-50 border-blue-400 text-blue-800`;
     }
   };
 
@@ -59,5 +59,3 @@ const NotificationToast = ({ notification, onRemove }) => {
 };
 
 export default NotificationToast;
-
-

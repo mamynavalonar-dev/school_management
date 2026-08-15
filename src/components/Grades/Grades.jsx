@@ -1,10 +1,17 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, Eye, FileText, Download, Upload, Save } from 'lucide-react';
 import { useUi } from '../../context/UiContext';
+import { useApp } from '../../context/AppContext';
 import { useNotifications } from '../../hooks/useNotifications';
+import apiService from '../../services/api';
+import ReportCardsPanel from './ReportCardsPanel';
+import { canManageFeature } from '../../utils/permissions';
 
 const Grades = () => {
+  const [activeTab, setActiveTab] = useState('grades');
   const [grades, setGrades] = useState([]);
+  const [students, setStudents] = useState([]);    // ✅ Liste des étudiants réels
+  const [evaluations, setEvaluations] = useState([]); // ✅ Liste des évaluations réelles
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('add');
@@ -17,28 +24,52 @@ const Grades = () => {
     is_absent: false
   });
   const { intent, clearIntent } = useUi();
-  const { success, error } = useNotifications();
+  const { user } = useApp();
+  const { success, error: notifyError } = useNotifications();
+  const canManageGrades = ['admin', 'directeur', 'teacher'].includes(user?.role) && canManageFeature(user, 'grades');
+  const canTableActions = ['admin', 'directeur'].includes(user?.role);
 
+  // Le tableau de notes dépend uniquement de la permission « Notes ».
+  // Pour la saisie, grades.php fournit ses propres références filtrées au lieu
+  // d'appeler student.php/evaluations.php, qui peuvent être désactivés séparément.
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const gradesRes = await apiService.getGrades();
+        setGrades(gradesRes.data || []);
+
+        if (canManageGrades) {
+          const refsRes = await apiService.getGradeReferences();
+          setStudents(refsRes.data?.students || []);
+          setEvaluations(refsRes.data?.evaluations || []);
+        } else {
+          setStudents([]);
+          setEvaluations([]);
+        }
+      } catch (err) {
+        notifyError('Impossible de charger les données nécessaires.');
+        console.error(err);
+      }
+    };
+    loadData();
+  }, [canManageGrades, notifyError]);
+
+  // Gestion de l'intent (bouton "+" depuis la sidebar)
   useEffect(() => {
     if (intent?.action === 'add') {
-      handleAdd();
+      if (canManageGrades) {
+        handleAdd();
+      } else {
+        notifyError("Vous n'avez pas l'autorisation de saisir une note.");
+      }
       clearIntent();
     }
-  }, [intent, clearIntent]);
+  }, [intent, clearIntent, canManageGrades, notifyError]);
 
-  useEffect(() => {
-    const mockGrades = [
-      { id: 1, student_name: 'Jean Dupont', student_number: 'STU20240001', evaluation_title: 'Examen Final - Programmation Web', course_name: 'Programmation Web', score: 16.5, max_score: 20, status: 'completed', grade_date: '2024-09-26', is_absent: false },
-      { id: 2, student_name: 'Marie Martin', student_number: 'STU20240002', evaluation_title: 'Partiel - Méthodes Numériques', course_name: 'Analyse Numérique', score: 14.0, max_score: 20, status: 'completed', grade_date: '2024-09-21', is_absent: false },
-      { id: 4, student_name: 'Sophie Bernard', student_number: 'STU20240004', evaluation_title: 'TP Évalué - Synthèse Organique', course_name: 'Chimie Générale', score: null, max_score: 20, status: 'absent', is_absent: true, grade_date: '2024-09-23' },
-      { id: 5, student_name: 'Pierre Leroy', student_number: 'STU20240003', evaluation_title: 'Projet - Application Web', course_name: 'Programmation Web', score: null, max_score: 20, status: 'pending', grade_date: null, is_absent: false },
-    ];
-    setGrades(mockGrades);
-  }, []);
-
+  // Filtrage local des notes (recherche)
   const filteredGrades = grades.filter(grade =>
-    grade.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    grade.evaluation_title.toLowerCase().includes(searchTerm.toLowerCase())
+    (grade.student_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (grade.evaluation_title || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAdd = () => {
@@ -67,44 +98,57 @@ const Grades = () => {
     setShowModal(true);
   };
 
-  const handleDelete = (gradeId) => {
+  const handleDelete = async (gradeId) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer cette note ?')) {
-      setGrades(grades.filter(g => g.id !== gradeId));
-      success('Note supprimée avec succès');
+      try {
+        await apiService.deleteGrade(gradeId);
+        setGrades(grades.filter(g => g.id !== gradeId));
+        success('Note supprimée avec succès');
+      } catch (err) {
+        notifyError(err.message || 'Erreur lors de la suppression');
+      }
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (modalType === 'add') {
-      const newGrade = {
-        id: Math.max(...grades.map(g => g.id), 0) + 1,
-        student_name: 'Nouvel Étudiant',
-        student_number: 'STU2024000' + (grades.length + 1),
-        evaluation_title: formData.evaluation_id === '1' ? 'Examen Final - Programmation Web' : 'Partiel - Méthodes Numériques',
-        course_name: formData.evaluation_id === '1' ? 'Programmation Web' : 'Analyse Numérique',
-        score: formData.is_absent ? null : parseFloat(formData.score),
-        max_score: formData.max_score,
-        status: formData.is_absent ? 'absent' : (formData.score ? 'completed' : 'pending'),
-        grade_date: new Date().toISOString().split('T')[0],
-        is_absent: formData.is_absent
-      };
-      setGrades([...grades, newGrade]);
-      success('Note ajoutée avec succès');
-    } else if (modalType === 'edit') {
-      setGrades(grades.map(g => 
-        g.id === selectedGrade.id ? {
-          ...g,
-          score: formData.is_absent ? null : parseFloat(formData.score),
-          max_score: formData.max_score,
-          status: formData.is_absent ? 'absent' : (formData.score ? 'completed' : 'pending'),
-          is_absent: formData.is_absent
-        } : g
-      ));
-      success('Note modifiée avec succès');
+
+    // ✅ Récupération des objets sélectionnés
+    const selectedStudent = students.find(s => s.id === Number(formData.student_id));
+    const selectedEval = evaluations.find(e => e.id === Number(formData.evaluation_id));
+
+    if (!selectedStudent || !selectedEval) {
+      notifyError('Veuillez sélectionner un étudiant et une évaluation valides.');
+      return;
     }
-    setShowModal(false);
+
+    const gradeData = {
+      student_id: selectedStudent.id,
+      evaluation_id: selectedEval.id,
+      score: formData.is_absent ? null : parseFloat(formData.score) || null,
+      max_score: formData.max_score,
+      status: formData.is_absent ? 'absent' : (formData.score ? 'completed' : 'pending'),
+      grade_date: new Date().toISOString().split('T')[0],
+      is_absent: formData.is_absent
+    };
+
+    try {
+      if (modalType === 'add') {
+        await apiService.createGrade(gradeData);
+        // Rafraîchir la liste des notes
+        const gradesRes = await apiService.getGrades();
+        setGrades(gradesRes.data || []);
+        success('Note ajoutée avec succès');
+      } else if (modalType === 'edit') {
+        await apiService.updateGrade(selectedGrade.id, gradeData);
+        const gradesRes = await apiService.getGrades();
+        setGrades(gradesRes.data || []);
+        success('Note modifiée avec succès');
+      }
+      setShowModal(false);
+    } catch (err) {
+      notifyError(err.message || 'Erreur lors de l\'enregistrement de la note');
+    }
   };
 
   const handleInputChange = (e) => {
@@ -140,14 +184,22 @@ const Grades = () => {
         <p className="text-gray-600 dark:text-gray-400">Saisie et consultation des résultats et bulletins</p>
       </div>
 
+      <div className="flex gap-2 border-b dark:border-gray-700 mb-6">
+        <button onClick={() => setActiveTab('grades')} className={`px-5 py-3 font-bold border-b-4 ${activeTab === 'grades' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}>Notes et évaluations</button>
+        <button onClick={() => setActiveTab('reports')} className={`px-5 py-3 font-bold border-b-4 ${activeTab === 'reports' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500'}`}>Bulletins scolaires</button>
+      </div>
+
+      {activeTab === 'grades' && <>
       <div className="filters-bar bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-4 mb-6 flex justify-between items-center">
         <div className="search-bar flex items-center bg-gray-50 dark:bg-gray-900 rounded-lg px-4 py-2 flex-1 min-w-64">
           <Search size={20} className="text-gray-400 mr-2" />
           <input type="text" placeholder="Rechercher par étudiant, évaluation..." className="w-full outline-none bg-transparent" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
-        <button onClick={handleAdd} className="ml-4 bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700">
-          <Plus size={20} /> Saisir une note
-        </button>
+        {canManageGrades && (
+          <button onClick={handleAdd} className="ml-4 bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700">
+            <Plus size={20} /> Saisir une note
+          </button>
+        )}
       </div>
 
       <div className="grades-table bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 overflow-hidden">
@@ -158,16 +210,15 @@ const Grades = () => {
               <th className="text-left p-4 font-semibold text-gray-700 dark:text-gray-300">Évaluation</th>
               <th className="text-left p-4 font-semibold text-gray-700 dark:text-gray-300">Note</th>
               <th className="text-left p-4 font-semibold text-gray-700 dark:text-gray-300">Statut</th>
-              <th className="text-left p-4 font-semibold text-gray-700 dark:text-gray-300">Actions</th>
+              {canTableActions && <th className="text-left p-4 font-semibold text-gray-700 dark:text-gray-300">Actions</th>}
             </tr>
           </thead>
           
           <tbody>
             {filteredGrades.map(grade => (
-              <tr key={grade.id} className="border dark:border-gray-700-t hover:bg-gray-50 dark:bg-gray-900">
+              <tr key={grade.id} className="border-t dark:border-gray-700 hover:bg-gray-50 dark:bg-gray-900">
                 <td className="p-4">
                   <div className="font-medium text-xl">{grade.student_name}</div>
-                  {/* <div className="text-base text-gray-500">{grade.student_number}</div> */}
                 </td>
                 <td className="p-4 text-xl font-medium">{grade.evaluation_title}</td>
                 <td className="p-4 font-semibold text-xl">
@@ -181,19 +232,17 @@ const Grades = () => {
                     {getStatusLabel(grade.status)}
                   </span>
                 </td>
-                <td className="p-4">
-                  <div className="flex space-x-2">
-                    <button onClick={() => handleView(grade)} className="text-blue-600 hover:text-blue-800 p-1 rounded" title="Voir détails">
-                      <Eye size={19}/>
-                    </button>
-                    <button onClick={() => handleEdit(grade)} className="text-green-600 hover:text-green-800 p-1 rounded" title="Modifier">
-                      <Edit size={19}/>
-                    </button>
-                    <button onClick={() => handleDelete(grade.id)} className="text-red-600 hover:text-red-800 p-1 rounded" title="Supprimer">
-                      <Trash2 size={19}/>
-                    </button>
-                  </div>
-                </td>
+                {canTableActions && (
+                  <td className="p-4">
+                    <div className="flex space-x-2">
+                      <button onClick={() => handleView(grade)} className="text-blue-600 hover:text-blue-800 p-1 rounded" title="Voir détails"><Eye size={19}/></button>
+                      {canManageGrades && <>
+                        <button onClick={() => handleEdit(grade)} className="text-green-600 hover:text-green-800 p-1 rounded" title="Modifier"><Edit size={19}/></button>
+                        <button onClick={() => handleDelete(grade.id)} className="text-red-600 hover:text-red-800 p-1 rounded" title="Supprimer"><Trash2 size={19}/></button>
+                      </>}
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -202,9 +251,12 @@ const Grades = () => {
           <div className="p-8 text-center text-gray-500">Aucune note trouvée</div>
         )}
       </div>
+      </>}
+
+      {activeTab === 'reports' && <ReportCardsPanel canManage={canManageGrades} />}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="app-modal-layer bg-black bg-opacity-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <h2 className="text-3xl font-bold mb-6">
               {modalType === 'add' && 'Saisir une Note'}
@@ -244,7 +296,7 @@ const Grades = () => {
                     </span>
                   </div>
                 </div>
-                <div className="flex justify-end pt-4 ">
+                <div className="flex justify-end pt-4">
                   <button onClick={() => setShowModal(false)} className="px-4 py-2 bg-blue-600 text-gray-800 dark:text-blue-100 rounded-lg hover:bg-blue-500">
                     Fermer
                   </button>
@@ -258,16 +310,20 @@ const Grades = () => {
                   <label className="block text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Évaluation</label>
                   <select name="evaluation_id" value={formData.evaluation_id} onChange={handleInputChange} required className="w-full border dark:border-gray-700 rounded-lg px-3 py-2">
                     <option value="">Sélectionner une évaluation</option>
-                    <option value="1">Examen Final - Programmation Web</option>
-                    <option value="2">Partiel - Méthodes Numériques</option>
+                    {evaluations.map(evalItem => (
+                      <option key={evalItem.id} value={evalItem.id}>{evalItem.title}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Étudiant</label>
                   <select name="student_id" value={formData.student_id} onChange={handleInputChange} required className="w-full border dark:border-gray-700 rounded-lg px-3 py-2">
                     <option value="">Sélectionner un étudiant</option>
-                    <option value="1">Jean Dupont</option>
-                    <option value="2">Marie Martin</option>
+                    {students.map(student => (
+                      <option key={student.id} value={student.id}>
+                        {student.first_name} {student.last_name} ({student.student_number})
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -302,5 +358,3 @@ const Grades = () => {
 };
 
 export default Grades;
-
-

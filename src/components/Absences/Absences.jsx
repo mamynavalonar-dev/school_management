@@ -1,10 +1,17 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, Eye, UserX, Calendar, Clock, Save } from 'lucide-react';
 import { useUi } from '../../context/UiContext';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useApp } from '../../context/AppContext';
+import apiService from '../../services/api';
+import { canManageFeature } from '../../utils/permissions';
 
 const Absences = () => {
   const [absences, setAbsences] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -12,40 +19,90 @@ const Absences = () => {
   const [selectedAbsence, setSelectedAbsence] = useState(null);
   const [formData, setFormData] = useState({
     student_id: '',
+    course_id: '',
     date: '',
     reason: '',
     status: 'pending',
     justification: ''
   });
   const { intent, clearIntent } = useUi();
-  const { success, error } = useNotifications();
+  const { user } = useApp();
+  const { success, error: notifyError } = useNotifications();
+  const canManage = canManageFeature(user, 'absences');
+  const canTableActions = ['admin', 'directeur'].includes(user?.role);
+
+  const loadAbsences = async () => {
+    const response = await apiService.getAbsences();
+    setAbsences(response?.data ?? []);
+  };
 
   useEffect(() => {
     if (intent?.action === 'add') {
-      handleAdd();
+      if (canManage) {
+        handleAdd();
+      } else {
+        notifyError("Vous n'avez pas l'autorisation d'ajouter une absence.");
+      }
       clearIntent();
     }
-  }, [intent, clearIntent]);
+  }, [intent, clearIntent, canManage, notifyError]);
 
   useEffect(() => {
-    const mockAbsences = [
-      { id: 1, student_name: 'Jean Dupont', student_number: 'STU20240001', date: '2024-09-20', reason: 'Maladie', status: 'justified', justification: 'Certificat médical fourni', course_name: 'Programmation Web' },
-      { id: 2, student_name: 'Marie Martin', student_number: 'STU20240002', date: '2024-09-22', reason: 'Problème familial', status: 'pending', justification: '', course_name: 'Analyse Numérique' },
-      { id: 3, student_name: 'Pierre Leroy', student_number: 'STU20240003', date: '2024-09-18', reason: 'Retard', status: 'unjustified', justification: '', course_name: 'Physique Quantique' },
-    ];
-    setAbsences(mockAbsences);
-  }, []);
+    let active = true;
 
-  const filteredAbsences = absences.filter(absence =>
-    absence.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    absence.course_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const absencesResponse = await apiService.getAbsences();
+        if (active) setAbsences(absencesResponse?.data ?? []);
+
+        if (canManage) {
+          const [studentsResult, coursesResult] = await Promise.allSettled([
+            apiService.getStudents(),
+            apiService.getCourses(),
+          ]);
+
+          if (!active) return;
+          if (studentsResult.status === 'fulfilled') {
+            setStudents(studentsResult.value?.data ?? []);
+          }
+          if (coursesResult.status === 'fulfilled') {
+            setCourses(coursesResult.value?.data ?? []);
+          }
+          if (studentsResult.status === 'rejected' || coursesResult.status === 'rejected') {
+            notifyError("Certaines listes nécessaires au formulaire n'ont pas pu être chargées.");
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load absences:', err);
+        if (active) notifyError('Impossible de charger les absences.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadData();
+    return () => {
+      active = false;
+    };
+  }, [canManage, notifyError]);
+
+  const filteredAbsences = absences.filter(absence => {
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch = !term
+      || (absence.student_name || '').toLowerCase().includes(term)
+      || (absence.student_number || '').toLowerCase().includes(term)
+      || (absence.course_name || '').toLowerCase().includes(term);
+    const matchesStatus = !filterStatus || absence.status === filterStatus;
+    return matchesSearch && matchesStatus;
+  });
 
   const handleAdd = () => {
     setModalType('add');
     setSelectedAbsence(null);
     setFormData({
       student_id: '',
+      course_id: '',
       date: new Date().toISOString().split('T')[0],
       reason: '',
       status: 'pending',
@@ -59,6 +116,7 @@ const Absences = () => {
     setSelectedAbsence(absence);
     setFormData({
       student_id: absence.student_id || '',
+      course_id: absence.course_id || '',
       date: absence.date,
       reason: absence.reason,
       status: absence.status,
@@ -73,42 +131,54 @@ const Absences = () => {
     setShowModal(true);
   };
 
-  const handleDelete = (absenceId) => {
+  const handleDelete = async (absenceId) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer cette absence ?')) {
-      setAbsences(absences.filter(a => a.id !== absenceId));
-      success('Absence supprimée avec succès');
+      try {
+        await apiService.deleteAbsence(absenceId);
+        setAbsences(prev => prev.filter(a => a.id !== absenceId));
+        success('Absence supprimée avec succès');
+      } catch (err) {
+        notifyError(err.message || "Erreur lors de la suppression de l'absence.");
+      }
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (modalType === 'add') {
-      const newAbsence = {
-        id: Math.max(...absences.map(a => a.id), 0) + 1,
-        student_name: formData.student_id === '1' ? 'Jean Dupont' : 'Marie Martin',
-        student_number: formData.student_id === '1' ? 'STU20240001' : 'STU20240002',
-        date: formData.date,
-        reason: formData.reason,
-        status: formData.status,
-        justification: formData.justification,
-        course_name: 'Cours Général'
-      };
-      setAbsences([...absences, newAbsence]);
-      success('Absence ajoutée avec succès');
-    } else if (modalType === 'edit') {
-      setAbsences(absences.map(a => 
-        a.id === selectedAbsence.id ? {
-          ...a,
+
+    try {
+      setSubmitting(true);
+
+      if (modalType === 'add') {
+        const student = students.find(item => String(item.id) === String(formData.student_id));
+        if (!student || !formData.course_id) {
+          notifyError('Veuillez sélectionner un étudiant et un cours valides.');
+          return;
+        }
+
+        await apiService.createAbsence({
+          ...formData,
+          student_id: Number(student.id),
+          course_id: Number(formData.course_id),
+        });
+        success('Absence ajoutée avec succès');
+      } else if (modalType === 'edit') {
+        await apiService.updateAbsence(selectedAbsence.id, {
           date: formData.date,
           reason: formData.reason,
           status: formData.status,
-          justification: formData.justification
-        } : a
-      ));
-      success('Absence modifiée avec succès');
+          justification: formData.justification,
+        });
+        success('Absence modifiée avec succès');
+      }
+
+      await loadAbsences();
+      setShowModal(false);
+    } catch (err) {
+      notifyError(err.message || "Erreur lors de l'enregistrement de l'absence.");
+    } finally {
+      setSubmitting(false);
     }
-    setShowModal(false);
   };
 
   const handleInputChange = (e) => {
@@ -151,9 +221,11 @@ const Absences = () => {
             <Search size={20} className="text-gray-400 mr-2" />
             <input type="text" placeholder="Rechercher par étudiant, cours..." className="w-full outline-none bg-transparent" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
-          <button onClick={handleAdd} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700">
-            <Plus size={20} /> Nouvelle absence
-          </button>
+          {canManage && (
+            <button onClick={handleAdd} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700">
+              <Plus size={20} /> Nouvelle absence
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="border dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-2xl font-medium">
@@ -194,13 +266,13 @@ const Absences = () => {
               <th className="text-left p-4 font-semibold text-gray-700 dark:text-gray-300">Cours</th>
               <th className="text-left p-4 font-semibold text-gray-700 dark:text-gray-300">Motif</th>
               <th className="text-left p-4 font-semibold text-gray-700 dark:text-gray-300">Statut</th>
-              <th className="text-left p-4 font-semibold text-gray-700 dark:text-gray-300">Actions</th>
+              {canTableActions && <th className="text-left p-4 font-semibold text-gray-700 dark:text-gray-300">Actions</th>}
             </tr>
           </thead>
           
           <tbody>
             {filteredAbsences.map(absence => (
-              <tr key={absence.id} className="border dark:border-gray-700-t hover:bg-gray-50 dark:bg-gray-900">
+              <tr key={absence.id} className="border-t dark:border-gray-700 hover:bg-gray-50 dark:bg-gray-900">
                 <td className="p-4">
                   <div className="font-medium text-2xl">{absence.student_name}</div>
                   {/* <div className="text-base text-gray-500">{absence.student_number}</div> */}
@@ -213,30 +285,30 @@ const Absences = () => {
                     {getStatusLabel(absence.status)}
                   </span>
                 </td>
-                <td className="p-4">
-                  <div className="flex space-x-2">
-                    <button onClick={() => handleView(absence)} className="text-blue-600 hover:text-blue-800 p-1 rounded" title="Voir détails">
-                      <Eye size={18}/>
-                    </button>
-                    <button onClick={() => handleEdit(absence)} className="text-green-600 hover:text-green-800 p-1 rounded" title="Modifier">
-                      <Edit size={18}/>
-                    </button>
-                    <button onClick={() => handleDelete(absence.id)} className="text-red-600 hover:text-red-800 p-1 rounded" title="Supprimer">
-                      <Trash2 size={18}/>
-                    </button>
-                  </div>
-                </td>
+                {canTableActions && (
+                  <td className="p-4">
+                    <div className="flex space-x-2">
+                      <button onClick={() => handleView(absence)} className="text-blue-600 hover:text-blue-800 p-1 rounded" title="Voir détails"><Eye size={18}/></button>
+                      {canManage && <>
+                        <button onClick={() => handleEdit(absence)} className="text-green-600 hover:text-green-800 p-1 rounded" title="Modifier"><Edit size={18}/></button>
+                        <button onClick={() => handleDelete(absence.id)} className="text-red-600 hover:text-red-800 p-1 rounded" title="Supprimer"><Trash2 size={18}/></button>
+                      </>}
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
-        {filteredAbsences.length === 0 && (
-          <div className="p-8 text-center text-gray-500">Aucune absence trouvée</div>
+        {(loading || filteredAbsences.length === 0) && (
+          <div className="p-8 text-center text-gray-500">
+            {loading ? 'Chargement des absences...' : 'Aucune absence trouvée'}
+          </div>
         )}
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="app-modal-layer bg-black bg-opacity-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <h2 className="text-3xl font-bold mb-6">
               {modalType === 'add' && 'Nouvelle Absence'}
@@ -292,10 +364,22 @@ const Absences = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Étudiant</label>
-                  <select name="student_id" value={formData.student_id} onChange={handleInputChange} required className="w-full border dark:border-gray-700 rounded-lg px-3 py-2">
+                  <select name="student_id" value={formData.student_id} onChange={handleInputChange} required disabled={modalType === 'edit'} className="w-full border dark:border-gray-700 rounded-lg px-3 py-2 disabled:bg-gray-100 disabled:text-gray-500">
                     <option value="">Sélectionner un étudiant</option>
-                    <option value="1">Jean Dupont</option>
-                    <option value="2">Marie Martin</option>
+                    {students.map(student => (
+                      <option key={student.id} value={student.id}>
+                        {[student.first_name, student.last_name].filter(Boolean).join(' ') || student.name} {student.student_number ? `(${student.student_number})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-1">Cours</label>
+                  <select name="course_id" value={formData.course_id} onChange={handleInputChange} required disabled={modalType === 'edit'} className="w-full border dark:border-gray-700 rounded-lg px-3 py-2 disabled:bg-gray-100 disabled:text-gray-500">
+                    <option value="">Sélectionner un cours</option>
+                    {courses.map(course => (
+                      <option key={course.id} value={course.id}>{course.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -322,8 +406,8 @@ const Absences = () => {
                   <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 text-gray-800 dark:text-gray-100 rounded-lg hover:bg-gray-300">
                     Annuler
                   </button>
-                  <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                    <Save size={18}/> {modalType === 'add' ? 'Enregistrer' : 'Modifier'}
+                  <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2">
+                    <Save size={18}/> {submitting ? 'Enregistrement...' : (modalType === 'add' ? 'Enregistrer' : 'Modifier')}
                   </button>
                 </div>
               </form>

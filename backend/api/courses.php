@@ -1,9 +1,10 @@
 <?php
 require_once '../models/Course.php';
 
-header("Access-Control-Allow-Origin: http://localhost:5174");
+require_once '../config/cors.php';
+applyCorsOrigin();
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-CSRF-Token");
 header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -13,6 +14,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../config/auth_guard.php';
+require_once '../config/csrf_guard.php';
+
+// Role-based access control
+$allowedRoles = [];
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $allowedRoles = ['admin', 'directeur', 'teacher', 'student'];
+} else {
+    // POST, PUT, DELETE
+    $allowedRoles = ['admin', 'directeur'];
+}
+if (!in_array($_SESSION['user_role'], $allowedRoles)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Accès refusé - rôle non autorisé']);
+    exit();
+}
 
 $database = new Database();
 $db = $database->getConnection();
@@ -23,8 +39,36 @@ $input = json_decode(file_get_contents("php://input"), true);
 
 try {
     if ($method === 'GET') {
-        // Liste tous les cours
-        $stmt = $course->read();
+        if (in_array($_SESSION['user_role'], ['admin', 'directeur'], true)) {
+            $stmt = $course->read();
+        } elseif ($_SESSION['user_role'] === 'teacher') {
+            $stmt = $db->prepare("
+                SELECT DISTINCT c.*, l.name AS level_name, s.name AS specialization_name
+                FROM courses c
+                INNER JOIN planning_schedules ps ON ps.course_id = c.id
+                INNER JOIN teachers t ON t.id = ps.teacher_id
+                LEFT JOIN levels l ON l.id = c.level_id
+                LEFT JOIN specializations s ON s.id = c.specialization_id
+                WHERE t.user_id = :user_id
+                ORDER BY c.name
+            ");
+            $stmt->execute([':user_id' => $_SESSION['user_id']]);
+        } else {
+            $stmt = $db->prepare("
+                SELECT DISTINCT c.*, l.name AS level_name, sp.name AS specialization_name
+                FROM courses c
+                INNER JOIN enrollments e
+                    ON e.level_id = c.level_id
+                   AND COALESCE(e.specialization_id, 0) = COALESCE(c.specialization_id, 0)
+                   AND e.status = 'Enrolled'
+                INNER JOIN students st ON st.id = e.student_id
+                LEFT JOIN levels l ON l.id = c.level_id
+                LEFT JOIN specializations sp ON sp.id = c.specialization_id
+                WHERE st.user_id = :user_id
+                ORDER BY c.name
+            ");
+            $stmt->execute([':user_id' => $_SESSION['user_id']]);
+        }
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'data' => $rows]);
     } elseif ($method === 'POST') {
@@ -46,7 +90,7 @@ try {
         $course->level_id = intval($input['level_id']);
         $course->specialization_id = intval($input['specialization_id']);
         $course->is_mandatory = (isset($input['is_mandatory']) ? boolval($input['is_mandatory']) : true);
-        
+
         if ($course->create()) {
             http_response_code(201);
             echo json_encode(['success' => true, 'message' => 'Cours créé.', 'id' => $course->id]);
@@ -57,7 +101,7 @@ try {
     } elseif ($method === 'PUT' && isset($_GET['id'])) {
         $course->id = intval($_GET['id']);
         // Lecture et validation des données existantes
-        // (Implémenter méthode read_single si besoin)
+        // (Implémenter metode read_single si besoin)
         $updateData = $input ?? [];
         foreach (['code','name','description','credits','hours_per_week','course_type','level_id','specialization_id','is_mandatory'] as $k) {
             if (isset($updateData[$k])) $course->$k = $updateData[$k];
@@ -87,5 +131,3 @@ try {
     echo json_encode(['success' => false, 'message' => 'Une erreur serveur est survenue.']);
 }
 ?>
-
-

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Gestion universitaire">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#g)"/>
+  <path d="M9 24 32 13l23 11-23 11L9 24Z" fill="#fff"/>
+  <path d="M18 31v11c7 7 21 7 28 0V31l-14 7-14-7Z" fill="#fff" opacity=".92"/>
+  <path d="M54 26v17" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="54" cy="46" r="4" fill="#fff"/>
+</svg>

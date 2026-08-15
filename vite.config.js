@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
+  base: './',
   plugins: [react()],
   resolve: {
     alias: {
@@ -16,13 +17,18 @@ export default defineConfig({
       overlay: true,
     },
     proxy: {
+      '/uploads': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, res) => {
-            console.log('Proxy error:', err);
+            console.error('Proxy API indisponible :', err.message);
             // Retourner une réponse d'erreur appropriée
             if (res && !res.headersSent) {
               res.writeHead(500, {
@@ -30,20 +36,12 @@ export default defineConfig({
               });
               res.end(JSON.stringify({ 
                 error: true, 
-                message: 'Backend server is not available',
-                useMockData: true 
+                message: "Le serveur PHP n'est pas disponible."
               }));
             }
-          });
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending Request to the Target:', req.method, req.url);
-          });
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
           });
         },
       },
     },
   },
 });
-

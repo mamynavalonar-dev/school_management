@@ -4,6 +4,7 @@ class Teacher {
     private $table_name = "teachers";
 
     public $id;
+    public $user_id;
     public $teacher_number;
     public $first_name;
     public $last_name;
@@ -27,7 +28,10 @@ class Teacher {
     }
 
     public function read() {
-        $query = "SELECT * FROM " . $this->table_name . " ORDER BY last_name, first_name";
+        $query = "SELECT t.*
+                  FROM " . $this->table_name . " t
+                  INNER JOIN users u ON u.id = t.user_id AND u.deleted_at IS NULL
+                  ORDER BY t.last_name, t.first_name";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
         return $stmt;
@@ -38,10 +42,12 @@ class Teacher {
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id', $this->id);
         $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($stmt->rowCount() > 0) {
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+        if ($row) {
+
+            $this->id = $row['id'];
+            $this->user_id = $row['user_id'];
             $this->teacher_number = $row['teacher_number'];
             $this->first_name = $row['first_name'];
             $this->last_name = $row['last_name'];
@@ -62,13 +68,14 @@ class Teacher {
 
             return $row;
         }
-        
+
         return false;
     }
 
     public function create() {
         $query = "INSERT INTO " . $this->table_name . "
-                  SET teacher_number = :teacher_number,
+                  SET user_id = :user_id,
+                      teacher_number = :teacher_number,
                       first_name = :first_name,
                       last_name = :last_name,
                       email = :email,
@@ -89,7 +96,9 @@ class Teacher {
         if (empty($this->teacher_number)) {
             $this->teacher_number = $this->generateTeacherNumber();
         }
+        $this->sanitizeForWrite();
 
+        $stmt->bindParam(':user_id', $this->user_id);
         $stmt->bindParam(':teacher_number', $this->teacher_number);
         $stmt->bindParam(':first_name', $this->first_name);
         $stmt->bindParam(':last_name', $this->last_name);
@@ -116,7 +125,9 @@ class Teacher {
 
     public function update() {
         $query = "UPDATE " . $this->table_name . "
-                  SET first_name = :first_name,
+                  SET user_id = :user_id,
+                      teacher_number = :teacher_number,
+                      first_name = :first_name,
                       last_name = :last_name,
                       email = :email,
                       phone = :phone,
@@ -134,6 +145,10 @@ class Teacher {
 
         $stmt = $this->conn->prepare($query);
 
+        $this->sanitizeForWrite();
+
+        $stmt->bindParam(':user_id', $this->user_id);
+        $stmt->bindParam(':teacher_number', $this->teacher_number);
         $stmt->bindParam(':first_name', $this->first_name);
         $stmt->bindParam(':last_name', $this->last_name);
         $stmt->bindParam(':email', $this->email);
@@ -150,32 +165,67 @@ class Teacher {
         $stmt->bindParam(':status', $this->status);
         $stmt->bindParam(':id', $this->id);
 
-        return $stmt->execute();
+        if ($stmt->execute()) {
+            return true;
+        }
+
+        return false;
     }
 
     public function delete() {
         $query = "DELETE FROM " . $this->table_name . " WHERE id = :id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id', $this->id);
-        return $stmt->execute();
+        if ($stmt->execute()) {
+            return true;
+        }
+        return false;
     }
 
     private function generateTeacherNumber() {
         $year = date('Y');
-        $query = "SELECT MAX(CAST(SUBSTRING(teacher_number, -4) AS UNSIGNED)) as max_num 
-                  FROM " . $this->table_name . " 
+        $query = "SELECT MAX(CAST(SUBSTRING(teacher_number, -4) AS UNSIGNED)) as max_num
+                  FROM " . $this->table_name . "
                   WHERE teacher_number LIKE :pattern";
-        
+
         $stmt = $this->conn->prepare($query);
         $pattern = "TEA{$year}%";
         $stmt->bindParam(':pattern', $pattern);
         $stmt->execute();
-        
+
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         $next_num = ($row['max_num'] ?? 0) + 1;
-        
+
         return "TEA{$year}" . str_pad($next_num, 4, '0', STR_PAD_LEFT);
+    }
+
+    private function sanitizeForWrite() {
+        $this->user_id = (int)$this->user_id;
+        $this->teacher_number = $this->cleanRequired($this->teacher_number);
+        $this->first_name = $this->cleanRequired($this->first_name);
+        $this->last_name = $this->cleanRequired($this->last_name);
+        $this->email = trim((string)$this->email);
+        $this->phone = $this->cleanNullable($this->phone);
+        $this->birth_date = $this->cleanNullable($this->birth_date);
+        $this->address = $this->cleanNullable($this->address);
+        $this->city = $this->cleanNullable($this->city);
+        $this->postal_code = $this->cleanNullable($this->postal_code);
+        $this->hire_date = $this->cleanNullable($this->hire_date);
+        $this->department = $this->cleanNullable($this->department);
+        $this->title = $this->cleanNullable($this->title);
+        $this->specialization = $this->cleanNullable($this->specialization);
+        $this->salary = ($this->salary === null || $this->salary === '') ? null : max(0, (float)$this->salary);
+        $this->status = $this->cleanRequired($this->status ?: 'active');
+    }
+
+    private function cleanRequired($value) {
+        return trim(strip_tags((string)$value));
+    }
+
+    private function cleanNullable($value) {
+        if ($value === null) return null;
+        $clean = trim(strip_tags((string)$value));
+        return $clean === '' ? null : $clean;
     }
 }
 ?>
-

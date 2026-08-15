@@ -57,13 +57,11 @@ export const calculateAverage = (grades) => {
 };
 
 export const generateStudentNumber = (year = new Date().getFullYear()) => {
-  const timestamp = Date.now();
   const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   return `STU${year}${random}`;
 };
 
 export const generateTeacherNumber = (year = new Date().getFullYear()) => {
-  const timestamp = Date.now();
   const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   return `TEA${year}${random}`;
 };
@@ -163,5 +161,3 @@ const timeToMinutes = (timeStr) => {
   const [hours, minutes] = timeStr.split(':').map(Number);
   return hours * 60 + minutes;
 };
-
-

@@ -1,4 +1,4 @@
-﻿import { Rocket } from 'lucide-react';
+import { Rocket } from 'lucide-react';
 import './Landing.css';
 
 const Landing = ({ onStart }) => {
@@ -33,5 +33,3 @@ const Landing = ({ onStart }) => {
 };
 
 export default Landing;
-
-

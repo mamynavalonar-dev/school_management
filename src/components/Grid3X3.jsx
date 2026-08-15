@@ -1,4 +1,4 @@
-﻿// components/Grid3X3.jsx
+// components/Grid3X3.jsx
 const Grid3X3 = ({ size = 24, color = 'currentColor', ...props }) => (
   <svg
     width={size}
@@ -19,5 +19,3 @@ const Grid3X3 = ({ size = 24, color = 'currentColor', ...props }) => (
 );
 
 export default Grid3X3;
-
-

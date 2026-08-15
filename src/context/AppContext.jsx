@@ -7,6 +7,7 @@ const ACTION_TYPES = {
   SET_SUCCESS: 'SET_SUCCESS',
   CLEAR_NOTIFICATION: 'CLEAR_NOTIFICATION',
   SET_USER: 'SET_USER',
+  SESSION_CHECKED: 'SESSION_CHECKED',
   LOGOUT: 'LOGOUT',
   SET_THEME: 'SET_THEME',
   SET_STATS: 'SET_STATS',
@@ -22,6 +23,7 @@ const ACTION_TYPES = {
 
 const initialState = {
   user: null,
+  sessionChecked: false, // true une fois la vérification de session (F5, nouvel onglet) terminée
   theme: 'light',
   loading: false,
   error: null,
@@ -60,8 +62,10 @@ const appReducer = (state, action) => {
       return { ...state, error: null, success: null };
     case ACTION_TYPES.SET_USER:
       return { ...state, user: action.payload, loading: false };
+    case ACTION_TYPES.SESSION_CHECKED:
+      return { ...state, sessionChecked: true };
     case ACTION_TYPES.LOGOUT:
-      return { ...initialState, theme: state.theme };
+      return { ...initialState, theme: state.theme, sessionChecked: true };
     case ACTION_TYPES.SET_THEME:
       return { ...state, theme: action.payload };
     case ACTION_TYPES.SET_STATS:
@@ -122,13 +126,16 @@ export const AppProvider = ({ children }) => {
     setTheme: (theme) => {
       dispatch({ type: ACTION_TYPES.SET_THEME, payload: theme });
       localStorage.setItem('theme', theme);
-      document.documentElement.className = theme;
+      // Préserve les autres préférences d'interface (mode compact,
+      // contraste renforcé et réduction des animations).
+      document.documentElement.classList.toggle('dark', theme === 'dark');
     },
     
     loadDashboardStats: async () => {
       try {
         actions.setLoading(true);
-        const stats = await apiService.getDashboardStats();
+        const response = await apiService.getDashboardStats();
+        const stats = response?.data ?? response;
         dispatch({ type: ACTION_TYPES.SET_STATS, payload: stats });
       } catch (error) {
         actions.setError('Erreur lors du chargement des statistiques');
@@ -216,23 +223,39 @@ export const AppProvider = ({ children }) => {
         actions.setLoading(false);
       }
     },
-    
-    loadRooms: async () => {},
-    loadSchedules: async () => {},
-    loadEvaluations: async () => {},
-    loadGrades: async () => {},
-    loadAbsences: async () => {},
   };
   
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') || 'light';
-    actions.setTheme(savedTheme);
+    dispatch({ type: ACTION_TYPES.SET_THEME, payload: savedTheme });
+    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+  }, []);
+
+  // Au montage (ouverture de l'app, F5) : si un token existe en sessionStorage
+  // pour cet onglet, on vérifie sa validité auprès du backend et on restaure
+  // l'utilisateur, au lieu de retomber sur la landing page à chaque rechargement.
+  useEffect(() => {
+    let cancelled = false;
+    apiService.checkSession().then((result) => {
+      if (cancelled) return;
+      if (result?.success && result?.data) {
+        dispatch({ type: ACTION_TYPES.SET_USER, payload: result.data });
+      }
+      dispatch({ type: ACTION_TYPES.SESSION_CHECKED });
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const handleSessionExpired = () => dispatch({ type: ACTION_TYPES.LOGOUT });
+    window.addEventListener('school-session-expired', handleSessionExpired);
+    return () => window.removeEventListener('school-session-expired', handleSessionExpired);
   }, []);
   
   useEffect(() => {
     if (state.error || state.success) {
       const timer = setTimeout(() => {
-        actions.clearNotification();
+        dispatch({ type: ACTION_TYPES.CLEAR_NOTIFICATION });
       }, 5000);
       return () => clearTimeout(timer);
     }
@@ -255,4 +278,3 @@ export const useApp = () => {
 };
 
 export default AppContext;
-

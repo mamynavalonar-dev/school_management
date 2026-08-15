@@ -1,4 +1,4 @@
-﻿// src/components/shared/ChartLine.jsx
+// src/components/shared/ChartLine.jsx
 const ChartLine = ({
   data,
   width = 480,
@@ -21,7 +21,8 @@ const ChartLine = ({
   const bottomPad = 36; // espace supplémentaire pour les labels de l'axe X
   const innerW = width - pad * 2;
   const innerH = height - pad - bottomPad;
-  const x = (_, i) => pad + (i / (data.length - 1)) * innerW;
+  const x = (_, i) =>
+    data.length === 1 ? pad + innerW / 2 : pad + (i / (data.length - 1)) * innerW;
   const y = (val) =>
     pad + innerH - ((val - minY) / Math.max(1, maxY - minY)) * innerH;
   const path = data

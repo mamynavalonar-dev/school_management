@@ -1,4 +1,4 @@
-﻿// src/components/NotificationsContainer.jsx
+// src/components/NotificationsContainer.jsx
 import NotificationToast from './shared/NotificationToast';
 
 const NotificationsContainer = ({ notifications, removeNotification }) => {
@@ -16,5 +16,3 @@ const NotificationsContainer = ({ notifications, removeNotification }) => {
 };
 
 export default NotificationsContainer;
-
-

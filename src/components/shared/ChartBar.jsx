@@ -1,4 +1,4 @@
-﻿// src/components/shared/ChartBar.jsx
+// src/components/shared/ChartBar.jsx
 const ChartBar = ({
   data,
   width = 480,

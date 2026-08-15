@@ -1,4 +1,4 @@
-﻿// src/components/Dashboard/Dashboard.jsx
+// src/components/Dashboard/Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import {
   Users,
@@ -17,11 +17,17 @@ import {
   getStats,
   getActivities,
   getUpcoming,
-  apiService,
 } from "../../services/api";
 import ChartLine from "../shared/ChartLine";
 import ChartBar from "../shared/ChartBar";
 import LoadingSpinner from "../shared/LoadingSpinner";
+
+const statColorClasses = {
+  blue: { background: 'bg-blue-100 dark:bg-blue-900', icon: 'text-blue-600 dark:text-blue-400' },
+  green: { background: 'bg-green-100 dark:bg-green-900', icon: 'text-green-600 dark:text-green-400' },
+  purple: { background: 'bg-purple-100 dark:bg-purple-900', icon: 'text-purple-600 dark:text-purple-400' },
+  orange: { background: 'bg-orange-100 dark:bg-orange-900', icon: 'text-orange-600 dark:text-orange-400' },
+};
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -36,10 +42,6 @@ export default function Dashboard() {
     setError(null);
 
     try {
-      // VÃ©rifier d'abord la connexion au backend
-      const isBackendConnected = await apiService.checkBackendConnection();
-      setBackendStatus(isBackendConnected ? "connected" : "disconnected");
-
       const [statsData, activitiesData, upcomingData] = await Promise.all([
         getStats(),
         getActivities(),
@@ -49,19 +51,11 @@ export default function Dashboard() {
       setStats(statsData);
       setActivities(Array.isArray(activitiesData) ? activitiesData : []);
       setUpcoming(Array.isArray(upcomingData) ? upcomingData : []);
+      setBackendStatus("connected");
     } catch (err) {
       console.error("Dashboard data error:", err);
       setError(err.message || "Erreur lors du chargement des données");
-
-      // Charger les données mockées en cas d'erreur
       setBackendStatus("disconnected");
-      const statsData = await getStats();
-      const activitiesData = await getActivities();
-      const upcomingData = await getUpcoming();
-
-      setStats(statsData);
-      setActivities(Array.isArray(activitiesData) ? activitiesData : []);
-      setUpcoming(Array.isArray(upcomingData) ? upcomingData : []);
     } finally {
       setLoading(false);
     }
@@ -79,8 +73,22 @@ export default function Dashboard() {
     );
   }
 
+  const enrollmentTrend = (stats?.enrollment_trend ?? []).map((item) => {
+    const date = new Date(`${item.period}-01T00:00:00`);
+    return {
+      x: Number.isNaN(date.getTime())
+        ? item.period
+        : new Intl.DateTimeFormat("fr-FR", { month: "short" }).format(date),
+      y: Number(item.value) || 0,
+    };
+  });
+  const specializationDistribution = (stats?.specialization_distribution ?? []).map((item) => ({
+    label: item.label,
+    value: Number(item.value) || 0,
+  }));
+
   const StatCard = ({ icon: Icon, title, value, change, color = "blue" }) => (
-    <div className="bg-white dark:bg-gray-800 dark:bg-gray-800 rounded-lg p-6 shadow-sm border dark:border-gray-700 border dark:border-gray-700-gray-200 dark:border dark:border-gray-700-gray-700">
+    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-3xl font-bold text-gray-800 dark:text-gray-400 dark:text-gray-400">
@@ -91,15 +99,15 @@ export default function Dashboard() {
           </p>
           {change && (
             <p
-              className={`text-xl font-medium ${change.startsWith("+") ? "text-green-600" : "text-red-600"}`}
+              className="text-xl font-medium text-gray-500 dark:text-gray-400"
             >
               {change}
             </p>
           )}
         </div>
-        <div className={`p-3 rounded-lg bg-${color}-100 dark:bg-${color}-900`}>
+        <div className={`p-3 rounded-lg ${statColorClasses[color]?.background || statColorClasses.blue.background}`}>
           <Icon
-            className={`w-20 h-20 text-${color}-600 dark:text-${color}-400`}
+            className={`w-20 h-20 ${statColorClasses[color]?.icon || statColorClasses.blue.icon}`}
           />
         </div>
       </div>
@@ -132,7 +140,7 @@ export default function Dashboard() {
   );
 
   const UpcomingItem = ({ item }) => (
-    <div className="flex items-center space-x-3 py-3 border dark:border-gray-700-b border dark:border-gray-700-gray-200 dark:border dark:border-gray-700-gray-700 last:border dark:border-gray-700-0">
+    <div className="flex items-center space-x-3 py-3 border-b border-gray-200 dark:border-gray-700 last:border-0">
       <div
         className={`p-2 rounded-full ${
           item.type === "exam"
@@ -149,7 +157,7 @@ export default function Dashboard() {
           {item.title}
         </p>
         <p className="text-xl text-gray-500 dark:text-gray-400">
-          {new Date(item.date).toLocaleDateString("fr-FR")} Ã  {item.time}
+          {new Date(item.date).toLocaleDateString("fr-FR")} à {item.time}
         </p>
       </div>
     </div>
@@ -168,17 +176,17 @@ export default function Dashboard() {
           </p>
         </div>
         {backendStatus === "disconnected" && (
-          <div className="flex items-center space-x-2 px-4 py-2 bg-yellow-100 dark:bg-yellow-900 border dark:border-gray-700 border dark:border-gray-700-yellow-300 dark:border dark:border-gray-700-yellow-700 rounded-lg">
+          <div className="flex items-center space-x-2 px-4 py-2 bg-yellow-100 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-700 rounded-lg">
             <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
             <span className="text-sm text-yellow-800 dark:text-yellow-200">
-              Mode demo - Données simulées
+              Backend indisponible — aucune donnée simulée affichée
             </span>
           </div>
         )}
       </div>
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900 border dark:border-gray-700 border dark:border-gray-700-red-200 dark:border dark:border-gray-700-red-700 rounded-lg p-4">
+        <div className="bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg p-4">
           <div className="flex items-center space-x-2 text-red-800 dark:text-red-200">
             <AlertTriangle className="w-4 h-4" />
             <span className="text-sm">{error}</span>
@@ -207,7 +215,7 @@ export default function Dashboard() {
             icon={Book}
             title="Cours"
             value={stats.courses?.total || 0}
-            change={`${stats.courses?.active || 0} actifs`}
+            change={`${stats.courses?.mandatory || 0} obligatoires`}
             color="purple"
           />
           <StatCard
@@ -222,8 +230,8 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Activités récentes */}
-        <div className="bg-white dark:bg-gray-800 dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 border dark:border-gray-700-gray-200 dark:border dark:border-gray-700-gray-700">
-          <div className="p-6 border dark:border-gray-700-b border dark:border-gray-700-gray-200 dark:border dark:border-gray-700-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-3xl font-semibold text-gray-900 dark:text-white">
               Activités Récentes
             </h2>
@@ -244,8 +252,8 @@ export default function Dashboard() {
         </div>
 
         {/* Événements à venir */}
-        <div className="bg-white dark:bg-gray-800 dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 border dark:border-gray-700-gray-200 dark:border dark:border-gray-700-gray-700">
-          <div className="p-6 border dark:border-gray-700-b border dark:border-gray-700-gray-200 dark:border dark:border-gray-700-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-3xl font-semibold text-gray-900 dark:text-white">
               Événements à Venir
             </h2>
@@ -268,35 +276,24 @@ export default function Dashboard() {
 
       {/* Graphiques supplémentaires */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800  rounded-lg shadow-sm border dark:border-gray-700 border dark:border-gray-700-gray-200 dark:border dark:border-gray-700-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Évolution des inscriptions
           </h3>
           <ChartLine
-            data={[
-              { x: "Jan", y: 120 },
-              { x: "Févr", y: 135 },
-              { x: "Mar", y: 142 },
-              { x: "Avr", y: 148 },
-              { x: "Mai", y: 156 },
-            ]}
+            data={enrollmentTrend}
             color="#3b82f6"
             xLabel="Mois"
             yLabel="Étudiants"
           />
         </div>
 
-        <div className="bg-white dark:bg-gray-800 dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 border dark:border-gray-700-gray-200 dark:border dark:border-gray-700-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Répartition par spécialité
           </h3>
           <ChartBar
-            data={[
-              { label: "Info", value: 65 },
-              { label: "Maths", value: 45 },
-              { label: "Physique", value: 32 },
-              { label: "Chimie", value: 14 },
-            ]}
+            data={specializationDistribution}
             color="#10b981"
             valueSuffix=""
             xLabel="Spécialité"

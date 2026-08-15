@@ -5,26 +5,6 @@
         --icons: #fff;
       }
 
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: "Poppins", sans-serif;
-      }
-
-      html {
-        font-size: 62.5%;
-      }
-
-      body {
-        height: 100vh;
-        font-size: 1.6rem;
-        display: flex;
-        column-gap: 2rem;
-        
-        background-color: var(--secondary);
-      }
-
       /* ================= SIDEBAR ================= */
       .sidebar {
         position: relative;
@@ -36,6 +16,13 @@
         display: flex;
         flex-direction: column;
         justify-content: space-between;
+        /* La sidebar occupe toute la hauteur que lui laisse son parent .app
+           (qui a déjà du padding) - PAS 100vh, sinon ça déborde du viewport.
+           Le bouton déconnexion reste ancré en bas grâce au space-between.
+           PAS de overflow:hidden ici : ça couperait le chevron toggle-btn
+           qui dépasse volontairement à droite (right: -1.5rem). C'est
+           .sidebar-content plus bas qui gère son propre scroll interne. */
+        height: 100%;
       }
 
       .sidebar.active {
@@ -59,11 +46,35 @@
         z-index: 10;
       }
 
+      /* ================= LOGO FIXE EN HAUT ================= */
+      /* Reste toujours visible, ne fait jamais partie du scroll */
+      .sidebar .list.list-fixed-top {
+        flex-shrink: 0;
+        margin-bottom: 2rem;
+      }
+
+      /* ================= ZONE SCROLLABLE ================= */
+      /* Ce wrapper prend tout l'espace restant entre le logo/toggle et le
+         bouton déconnexion, et scrolle si le menu déborde. */
+      .sidebar-content {
+        flex: 1 1 auto;
+        min-height: 0; /* essentiel pour que overflow fonctionne dans un flex column */
+        overflow-y: auto;
+        overflow-x: hidden;
+
+        /* Scrollbar invisible mais toujours utilisable (molette / trackpad / swipe) */
+        scrollbar-width: none;      /* Firefox */
+        -ms-overflow-style: none;   /* Old Edge / IE */
+      }
+
+      .sidebar-content::-webkit-scrollbar {
+        display: none;              /* Chrome, Edge, Safari */
+      }
+
       .sidebar .list {
         display: flex;
         flex-direction: column;
         row-gap: 6rem;
-        flex-grow: 1;
       }
 
       .sidebar .list .item {
@@ -95,6 +106,7 @@
       .sidebar .list .item a .text {
         font-size: 1.6rem;
         font-weight: 500;
+        white-space: nowrap;
         pointer-events: none;
         user-select: none;
         -webkit-user-select: none;
@@ -120,56 +132,97 @@
         font-weight: 500;
       }
 
-      .sidebar .list .menu-list {
+      .sidebar .list.menu-list {
         position: relative;
         display: flex;
         flex-direction: column;
         row-gap: 0.25rem;
+        /* petite marge basse pour que le dernier item ne colle pas au bord
+           quand on scrolle jusqu'en bas */
+        padding-bottom: 1rem;
       }
 
-      .sidebar .list .menu-list .item {
+      .sidebar .list.menu-list .item {
         z-index: 1;
+        border-radius: 1.6rem 0 0 1.6rem;
       }
 
-      .sidebar .list .menu-list .item a {
-        transition: 0.2s;
-        transition-delay: 0.2s;
+      .sidebar .list.menu-list .item a {
+        position: relative;
+        z-index: 1;
+        color: #fff;
+        border-radius: inherit;
+        transition: color 0.2s ease, background-color 0.2s ease, padding 0.2s ease;
       }
 
-      .sidebar .list .menu-list .item.active a {
-        color: var(--primary);
+      .sidebar .list.menu-list .item:not(.active) a:hover {
+        background-color: rgba(255, 255, 255, 0.14);
+      }
+
+      .sidebar .list.menu-list .item.active a,
+      .sidebar .list.menu-list .item.active a:hover {
+        color: var(--primary) !important;
         padding-left: 0.5rem;
       }
 
-      .sidebar .list .menu-list .indicator {
+      /* Indicateur unique animé : sa position est synchronisée sur la mesure
+         réelle du menu actif, y compris après un changement de taille. */
+      .sidebar .list.menu-list .sidebar-indicator {
         position: absolute;
         top: 0;
+        left: 0;
+        z-index: 0;
         width: 100%;
         height: 4.8rem;
+        border-radius: 1.6rem 0 0 1.6rem;
+        list-style: none;
         background-color: var(--secondary);
-        border-radius: 30px 0 0 30px;
-        transition: transform 0.4s;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate3d(0, 0, 0);
+        will-change: transform, height;
       }
 
-      .sidebar .list .menu-list .indicator::before,
-      .sidebar .list .menu-list .indicator::after {
+      .sidebar .list.menu-list .sidebar-indicator.visible {
+        opacity: 1;
+      }
+
+      .sidebar .list.menu-list .sidebar-indicator.ready {
+        transition:
+          transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+          height 0.24s ease,
+          opacity 0.16s ease,
+          background-color 0.25s ease;
+      }
+
+      /* Les deux raccords concaves se déplacent avec l'indicateur. */
+      .sidebar .list.menu-list .sidebar-indicator::before,
+      .sidebar .list.menu-list .sidebar-indicator::after {
         content: "";
         position: absolute;
         right: 0;
         width: 4rem;
         height: 4rem;
-        background-color: transparent;
         border-radius: 50%;
+        background-color: transparent;
+        pointer-events: none;
       }
 
-      .sidebar .list .menu-list .indicator::before {
+      .sidebar .list.menu-list .sidebar-indicator::before {
         top: -4rem;
         box-shadow: 2rem 2rem 0 var(--secondary);
       }
 
-      .sidebar .list .menu-list .indicator::after {
+      .sidebar .list.menu-list .sidebar-indicator::after {
         bottom: -4rem;
         box-shadow: 2rem -2rem 0 var(--secondary);
+      }
+
+      .sidebar .list.menu-list .item a svg {
+        display: block;
+        flex: 0 0 auto;
+        color: inherit;
+        stroke: currentColor;
       }
 
       /* ================= MAIN ================= */
@@ -209,15 +262,20 @@
         cursor: pointer;
         position: relative;
         overflow: hidden;
-        transition: all 0.3s ease;
+        transition: all 0.5s ease;
         box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
         background-color: rgb(255, 65, 65);
-        margin: 1rem 1rem 1rem 0;
+        align-self: flex-start;
+        max-width: calc(100% - 1rem);
+        margin: 1rem 0;
+        /* Ne doit jamais rétrécir : reste toujours à sa taille, ancré en bas
+           par le justify-content: space-between du .sidebar */
+        flex-shrink: 0;
       }
 
       .deconnexion .sign {
         width: 100%;
-        transition: all 0.3s ease;
+        transition: all 0.5s ease;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -239,13 +297,13 @@
         color: white;
         font-size: 1.2em;
         font-weight: 600;
-        transition: all 0.3s ease;
+        transition: all 0.5s ease;
         white-space: nowrap;
       }
 
      /* === Quand la sidebar est ouverte === */
 .sidebar.active .deconnexion {
-  width: 222px;
+  width: calc(100% - 1rem);
   height: 50px;
   border-radius: 40px;
 }
@@ -278,4 +336,340 @@
   opacity: 0;
   width: 0;
 }
+
+/* ========================================================================== */
+/* V7.6 — dock mobile avec encoche circulaire animée                          */
+/* ========================================================================== */
+/* V7.7 — dock mobile affiné selon la référence :
+   - vrai débord circulaire au-dessus de la barre ;
+   - espace latéral pour que le 1er/dernier item ne soit pas coupé ;
+   - encoche plus large et plus haute ;
+   - animation plus douce. */
+@media (max-width: 760px) {
+  .sidebar,
+  .sidebar.active {
+    position: fixed;
+    z-index: 115;
+    left: .7rem;
+    right: .7rem;
+    top: auto;
+    bottom: calc(.7rem + env(safe-area-inset-bottom, 0px));
+    width: auto !important;
+    height: 6.8rem;
+    max-height: 6.8rem;
+    padding: .65rem .75rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: stretch;
+    gap: .45rem;
+    border-radius: 1.8rem;
+    background: var(--primary);
+    box-shadow: 0 14px 32px rgba(76, 29, 149, .30);
+    overflow: visible;
+    transition: none;
+  }
+
+  .sidebar .toggle-btn,
+  .sidebar .list.list-fixed-top {
+    display: none !important;
+  }
+
+  /* La zone de scroll est volontairement plus haute que la barre : le bouton
+     actif peut ainsi sortir au-dessus sans être coupé. */
+  .sidebar-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    height: 10.8rem;
+    margin-top: -4.1rem;
+    padding-top: 4.1rem;
+    box-sizing: border-box;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .sidebar-content::-webkit-scrollbar { display: none; }
+
+  .sidebar .list.menu-list {
+    position: relative;
+    width: max-content;
+    height: 5.5rem;
+    min-height: 5.5rem;
+    padding: 0 1.1rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: .5rem;
+    row-gap: 0;
+  }
+
+  .sidebar .list.menu-list .item {
+    position: relative;
+    z-index: 3;
+    flex: 0 0 4.9rem;
+    width: 4.9rem;
+    height: 4.9rem;
+    border-radius: 50%;
+  }
+
+  .sidebar .list.menu-list .item a,
+  .sidebar .list.menu-list .item.active a,
+  .sidebar .list.menu-list .item.active a:hover {
+    width: 4.9rem;
+    height: 4.9rem;
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #fff;
+    background: transparent;
+    transition:
+      transform .38s cubic-bezier(.22, 1, .36, 1),
+      background-color .24s ease,
+      color .24s ease,
+      box-shadow .30s ease;
+  }
+
+  .sidebar .list.menu-list .item:not(.active) a:hover {
+    background: rgba(255, 255, 255, .14);
+  }
+
+  /* Le bouton actif est réellement rond et remonte dans l'encoche. */
+  .sidebar .list.menu-list .item.active a,
+  .sidebar .list.menu-list .item.active a:hover {
+    color: #fff !important;
+    background: var(--primary) !important;
+    transform: translateY(-2.45rem);
+    box-shadow:
+      0 12px 24px rgba(76, 29, 149, .28),
+      inset 0 0 0 1px rgba(255, 255, 255, .10);
+  }
+
+  .sidebar .list .item a .icon {
+    min-width: 4.9rem;
+    width: 4.9rem;
+    min-height: 4.9rem;
+    height: 4.9rem;
+  }
+
+  .sidebar .list.menu-list .item a svg {
+    width: 2.05rem;
+    height: 2.05rem;
+    transition: transform .34s cubic-bezier(.22, 1, .36, 1);
+  }
+
+  .sidebar .list.menu-list .item.active a svg {
+    transform: scale(1.08);
+  }
+
+  .sidebar .list .item a .text,
+  .sidebar.active .list .item a .text {
+    display: none !important;
+  }
+
+  /* Grand cercle de la couleur du fond : il masque la barre violette et
+     produit l'encoche courbe de la référence. Il glisse entre les menus. */
+  .sidebar .list.menu-list .sidebar-indicator {
+    display: block !important;
+    position: absolute;
+    top: -3.2rem;
+    left: 0;
+    z-index: 2;
+    width: 8.3rem;
+    height: 8.3rem;
+    border-radius: 50%;
+    background: var(--background-card, #fff);
+    opacity: 0;
+    pointer-events: none;
+    will-change: transform, width, height;
+    box-shadow: none;
+  }
+
+  .sidebar .list.menu-list .sidebar-indicator.visible { opacity: 1; }
+
+  .sidebar .list.menu-list .sidebar-indicator.ready {
+    transition:
+      transform .42s cubic-bezier(.22, 1, .36, 1),
+      width .24s ease,
+      height .24s ease,
+      opacity .16s ease;
+  }
+
+  .sidebar .list.menu-list .sidebar-indicator::before,
+  .sidebar .list.menu-list .sidebar-indicator::after {
+    content: "";
+    position: absolute;
+    bottom: 1.45rem;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 50%;
+    background: var(--primary);
+  }
+
+  .sidebar .list.menu-list .sidebar-indicator::before {
+    left: -.95rem;
+  }
+
+  .sidebar .list.menu-list .sidebar-indicator::after {
+    right: -.95rem;
+  }
+
+  .sidebar .deconnexion,
+  .sidebar.active .deconnexion,
+  .sidebar:not(.active) .deconnexion {
+    position: relative;
+    z-index: 4;
+    flex: 0 0 5rem;
+    width: 5rem !important;
+    max-width: 5rem;
+    height: 5rem;
+    margin: 0;
+    border-radius: 1.45rem;
+    box-shadow: none;
+  }
+
+  .sidebar .deconnexion .sign,
+  .sidebar.active .deconnexion .sign,
+  .sidebar:not(.active) .deconnexion .sign {
+    width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .sidebar .deconnexion .text,
+  .sidebar.active .deconnexion .text,
+  .sidebar:not(.active) .deconnexion .text {
+    display: none !important;
+  }
+}
+
+/* ========================================================================== */
+/* V7.12 — dock mobile consolidé et centrage exact                           */
+/* ========================================================================== */
+@media (max-width: 760px) {
+  .sidebar,
+  .sidebar.active {
+    left: .85rem !important;
+    right: .85rem !important;
+    bottom: calc(.72rem + env(safe-area-inset-bottom, 0px)) !important;
+    height: 6.1rem !important;
+    max-height: 6.1rem !important;
+    padding: .52rem .72rem !important;
+    border-radius: 1.45rem !important;
+    overflow: visible !important;
+    box-shadow: 0 10px 22px rgba(76, 29, 149, .28) !important;
+  }
+
+  .sidebar-content {
+    height: 8rem !important;
+    margin-top: -2.45rem !important;
+    padding-top: 2.45rem !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+
+  .sidebar .list.menu-list {
+    justify-content: flex-start !important;
+    padding: 0 1.05rem !important;
+    gap: .34rem !important;
+    height: 4.7rem !important;
+    min-height: 4.7rem !important;
+    overflow: visible !important;
+  }
+
+  .sidebar .list.menu-list .item {
+    flex: 0 0 4.12rem !important;
+    width: 4.12rem !important;
+    min-width: 4.12rem !important;
+    height: 4.12rem !important;
+    min-height: 4.12rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+  }
+
+  .sidebar .list.menu-list .item a,
+  .sidebar .list.menu-list .item.active a,
+  .sidebar .list.menu-list .item.active a:hover,
+  .sidebar .list .item a .icon {
+    width: 4.12rem !important;
+    min-width: 4.12rem !important;
+    height: 4.12rem !important;
+    min-height: 4.12rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+  }
+
+  .sidebar .list.menu-list .item a svg {
+    width: 1.72rem !important;
+    height: 1.72rem !important;
+    margin: 0 !important;
+    flex: 0 0 auto !important;
+  }
+
+  .sidebar .list.menu-list .sidebar-indicator {
+    left: 0 !important;
+    top: -1.7rem !important;
+    width: 5.35rem !important;
+    min-width: 5.35rem !important;
+    height: 5.35rem !important;
+    min-height: 5.35rem !important;
+    border-radius: 50% !important;
+    background: var(--background-card, #ffffff) !important;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, .24) !important;
+  }
+
+  .sidebar .list.menu-list .sidebar-indicator::before,
+  .sidebar .list.menu-list .sidebar-indicator::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  .sidebar .list.menu-list .item.active a,
+  .sidebar .list.menu-list .item.active a:hover {
+    transform: translateY(-1.22rem) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .sidebar .list.menu-list .item:first-of-type {
+    margin-left: .25rem !important;
+  }
+
+  .sidebar .list.menu-list .item:last-of-type {
+    margin-right: .25rem !important;
+  }
+}
+
+/* ========================================================================== */
+/* V7.16 — contraste icône active du dock mobile                             */
+/* ========================================================================== */
+@media (max-width: 760px) {
+  /*
+   * L'indicateur utilise --background-card :
+   * blanc en thème clair, sombre en thème dark.
+   * L'icône active doit donc utiliser la couleur de texte du thème,
+   * au lieu d'hériter du #fff de l'ancien dock mobile.
+   */
+  .sidebar .list.menu-list .item.active a,
+  .sidebar .list.menu-list .item.active a:hover,
+  .sidebar .list.menu-list .item.active a .icon,
+  .sidebar .list.menu-list .item.active a svg {
+    color: var(--text-primary, #111827) !important;
+  }
+
+  .sidebar .list.menu-list .item.active a svg {
+    stroke: currentColor !important;
+  }
+}
+/* ========================================================================== */
 

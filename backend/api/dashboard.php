@@ -1,8 +1,9 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
-header("Access-Control-Allow-Origin: http://localhost:5174");
+require_once '../config/cors.php';
+applyCorsOrigin();
 header("Access-Control-Allow-Methods: GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Accept");
+header("Access-Control-Allow-Headers: Content-Type, Accept, Authorization, X-CSRF-Token");
 header("Access-Control-Allow-Credentials: true");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -10,7 +11,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+require_once '../config/database.php';
 require_once '../config/auth_guard.php';
+
+if (!in_array($_SESSION['user_role'] ?? '', ['admin', 'directeur'], true)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Accès réservé à la direction.']);
+    exit;
+}
+
+$database = new Database();
+$db = $database->getConnection();
 
 function send_json($code, $payload) {
     http_response_code($code);
@@ -26,28 +37,199 @@ try {
 
     switch ($action) {
         case 'stats':
-            // Exemple statiques, à adapter
+            $studentStats = $db->query("
+                SELECT
+                    COUNT(*) AS total,
+                    COALESCE(SUM(status = 'active'), 0) AS active,
+                    COALESCE(SUM(created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)), 0) AS new_students
+                FROM students
+            ")->fetch(PDO::FETCH_ASSOC);
+
+            $teacherStats = $db->query("
+                SELECT
+                    COUNT(*) AS total,
+                    COALESCE(SUM(status = 'active'), 0) AS active
+                FROM teachers
+            ")->fetch(PDO::FETCH_ASSOC);
+
+            $courseStats = $db->query("
+                SELECT
+                    COUNT(*) AS total,
+                    COALESCE(SUM(is_mandatory = 1), 0) AS mandatory
+                FROM courses
+            ")->fetch(PDO::FETCH_ASSOC);
+
+            $roomStats = $db->query("
+                SELECT
+                    COUNT(*) AS total,
+                    COALESCE(SUM(is_available = 1), 0) AS available
+                FROM rooms
+            ")->fetch(PDO::FETCH_ASSOC);
+
+            $gradeStats = $db->query("
+                SELECT
+                    COALESCE(SUM(status = 'pending'), 0) AS pending,
+                    COALESCE(SUM(status = 'completed' OR score IS NOT NULL), 0) AS completed
+                FROM grades
+            ")->fetch(PDO::FETCH_ASSOC);
+
+            $absenceStats = $db->query("
+                SELECT
+                    COALESCE(SUM(date = CURDATE()), 0) AS today,
+                    COALESCE(SUM(date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')), 0) AS this_month
+                FROM absences
+            ")->fetch(PDO::FETCH_ASSOC);
+
+            $evaluationStats = $db->query("
+                SELECT
+                    COALESCE(SUM(evaluation_date >= CURDATE()), 0) AS upcoming,
+                    COALESCE(SUM(evaluation_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                        AND evaluation_date < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)), 0) AS this_month
+                FROM evaluations
+            ")->fetch(PDO::FETCH_ASSOC);
+
+            $trendStmt = $db->query("
+                SELECT
+                    DATE_FORMAT(enrollment_date, '%Y-%m') AS period,
+                    COUNT(*) AS value
+                FROM enrollments
+                WHERE enrollment_date >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 5 MONTH), '%Y-%m-01')
+                GROUP BY DATE_FORMAT(enrollment_date, '%Y-%m')
+                ORDER BY period
+            ");
+            $enrollmentTrend = array_map(static function ($row) {
+                return ['period' => $row['period'], 'value' => (int)$row['value']];
+            }, $trendStmt->fetchAll(PDO::FETCH_ASSOC));
+
+            $distributionStmt = $db->query("
+                SELECT sp.name AS label, COUNT(DISTINCT e.student_id) AS value
+                FROM enrollments e
+                INNER JOIN specializations sp ON sp.id = e.specialization_id
+                WHERE e.status = 'Enrolled'
+                GROUP BY sp.id, sp.name
+                ORDER BY value DESC, sp.name
+            ");
+            $specializationDistribution = array_map(static function ($row) {
+                return ['label' => $row['label'], 'value' => (int)$row['value']];
+            }, $distributionStmt->fetchAll(PDO::FETCH_ASSOC));
+
             $data = [
-                'students' => [ 'total'=>156, 'new'=>12, 'active'=>148 ],
-                'teachers' => [ 'total'=>24, 'active'=>22 ],
-                'courses'  => [ 'total'=>45, 'active'=>42 ],
-                'rooms'    => [ 'total'=>18, 'available'=>15 ],
-                'grades'   => [ 'pending'=>45, 'completed'=>287 ]
+                'students' => [
+                    'total' => (int)$studentStats['total'],
+                    'new' => (int)$studentStats['new_students'],
+                    'active' => (int)$studentStats['active'],
+                ],
+                'teachers' => [
+                    'total' => (int)$teacherStats['total'],
+                    'active' => (int)$teacherStats['active'],
+                ],
+                'courses' => [
+                    'total' => (int)$courseStats['total'],
+                    'mandatory' => (int)$courseStats['mandatory'],
+                ],
+                'rooms' => [
+                    'total' => (int)$roomStats['total'],
+                    'available' => (int)$roomStats['available'],
+                ],
+                'grades' => [
+                    'pending' => (int)$gradeStats['pending'],
+                    'completed' => (int)$gradeStats['completed'],
+                ],
+                'absences' => [
+                    'today' => (int)$absenceStats['today'],
+                    'thisMonth' => (int)$absenceStats['this_month'],
+                ],
+                'evaluations' => [
+                    'upcoming' => (int)$evaluationStats['upcoming'],
+                    'thisMonth' => (int)$evaluationStats['this_month'],
+                ],
+                'enrollment_trend' => $enrollmentTrend,
+                'specialization_distribution' => $specializationDistribution,
             ];
             send_json(200, ['success'=>true, 'data'=>$data]);
             break;
         case 'activities':
-            $data = [
-                [ 'id'=>1, 'type'=>'grade', 'description'=>'Nouvelle note ajoutée', 'user'=>'Prof. Durand', 'time'=>date('c') ],
-                [ 'id'=>2, 'type'=>'absence', 'description'=>'Absence justifiée', 'user'=>'Admin', 'time'=>date('c') ]
-            ];
+            $stmt = $db->query("
+                SELECT recent.id, recent.type, recent.description, recent.actor, recent.activity_time
+                FROM (
+                    SELECT
+                        CONCAT('grade-', g.id) AS id,
+                        'grade' AS type,
+                        CONCAT('Note enregistrée en ', c.name) AS description,
+                        'Notes' AS actor,
+                        g.created_at AS activity_time
+                    FROM grades g
+                    INNER JOIN evaluations ev ON ev.id = g.evaluation_id
+                    INNER JOIN courses c ON c.id = ev.course_id
+                    UNION ALL
+                    SELECT
+                        CONCAT('absence-', a.id) AS id,
+                        'absence' AS type,
+                        CONCAT('Absence enregistrée en ', c.name) AS description,
+                        'Absences' AS actor,
+                        a.created_at AS activity_time
+                    FROM absences a
+                    INNER JOIN courses c ON c.id = a.course_id
+                    UNION ALL
+                    SELECT
+                        CONCAT('course-', id) AS id,
+                        'course' AS type,
+                        CONCAT('Cours créé : ', name) AS description,
+                        'Cours' AS actor,
+                        created_at AS activity_time
+                    FROM courses
+                ) recent
+                WHERE recent.activity_time IS NOT NULL
+                ORDER BY recent.activity_time DESC
+                LIMIT 10
+            ");
+            $data = array_map(static function ($row) {
+                return [
+                    'id' => $row['id'],
+                    'type' => $row['type'],
+                    'description' => $row['description'],
+                    'user' => $row['actor'],
+                    'time' => $row['activity_time'],
+                ];
+            }, $stmt->fetchAll(PDO::FETCH_ASSOC));
             send_json(200, ['success'=>true, 'data'=>$data]);
             break;
         case 'upcoming':
-            $data = [
-                [ 'id'=>1, 'title'=>'Examen Final - Mathématiques', 'date'=>'2025-10-20', 'time'=>'09:00', 'type'=>'exam' ],
-                [ 'id'=>2, 'title'=>'Réunion des enseignants', 'date'=>'2025-10-18', 'time'=>'14:00', 'type'=>'meeting' ]
-            ];
+            $stmt = $db->query("
+                SELECT events.id, events.title, events.event_date, events.event_time, events.type
+                FROM (
+                    SELECT
+                        CONCAT('evaluation-', e.id) AS id,
+                        CONCAT(e.title, IF(c.name IS NULL OR c.name = '', '', CONCAT(' - ', c.name))) AS title,
+                        e.evaluation_date AS event_date,
+                        COALESCE(NULLIF(e.evaluation_time, ''), '00:00') AS event_time,
+                        'exam' AS type
+                    FROM evaluations e
+                    LEFT JOIN courses c ON c.id = e.course_id
+                    WHERE e.evaluation_date >= CURDATE()
+                      AND (e.status IS NULL OR e.status NOT IN ('cancelled', 'completed'))
+                    UNION ALL
+                    SELECT
+                        CONCAT('booking-', rb.id) AS id,
+                        rb.title,
+                        rb.booking_date AS event_date,
+                        TIME_FORMAT(rb.start_time, '%H:%i') AS event_time,
+                        'meeting' AS type
+                    FROM room_bookings rb
+                    WHERE rb.booking_date >= CURDATE() AND rb.status = 'confirmed'
+                ) events
+                ORDER BY events.event_date, events.event_time
+                LIMIT 10
+            ");
+            $data = array_map(static function ($row) {
+                return [
+                    'id' => $row['id'],
+                    'title' => $row['title'],
+                    'date' => $row['event_date'],
+                    'time' => substr((string)$row['event_time'], 0, 5),
+                    'type' => $row['type'],
+                ];
+            }, $stmt->fetchAll(PDO::FETCH_ASSOC));
             send_json(200, ['success'=>true, 'data'=>$data]);
             break;
         default:
@@ -59,5 +241,3 @@ try {
     send_json(500, ['success'=>false, 'message'=>'Une erreur serveur est survenue.']);
 }
 ?>
-
-

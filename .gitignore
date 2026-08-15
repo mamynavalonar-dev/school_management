@@ -1,42 +1,65 @@
-# Dependencies
-node_modules/
-vendor/
+# ============================================================================
+# school_management — fichiers à ne jamais publier
+# ============================================================================
 
-# Production builds
-dist/
-build/
-
-# Environment files
+# Secrets et configuration locale
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
+backend-ws/.env
+backend-ws/.env.*
 
-# IDE files
+# Dépendances installées localement
+node_modules/
+backend-ws/node_modules/
+backend/vendor/
+
+# Builds, caches et couverture
+dist/
+out/
+release/
+coverage/
+.vite/
+.cache/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Données runtime / uploads utilisateurs
+storage/uploads/
+backend/uploads/
+uploads/
+tmp/
+temp/
+
+# Sauvegardes et artefacts locaux de développement
+correctif_backups/
+copie_*.txt
+correctif_*.mjs
+correctif_*.patch
+appliquer_correctif_*.mjs
+appliquer_evolutions_v*.mjs
+preparer_github_avant_commit.mjs
+
+# Dumps / bases locales — ne pas ignorer backend/migrations/*.sql
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+*.sql.gz
+
+# IDE / OS
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# OS files
+*.code-workspace
 .DS_Store
 Thumbs.db
+Desktop.ini
 
-# Logs
-*.log
-logs/
-
-# Backend uploads
-backend/uploads/
-backend/tmp/
-
-# Cache
-*.cache
-.cache/
-
-# Testing
-coverage/
-.nyc_output/
-
-# Temporary files
+# Divers
 *.tmp
-*.temp
+*.swp
+*.swo

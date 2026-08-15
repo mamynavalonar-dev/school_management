@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
-header("Access-Control-Allow-Origin: http://localhost:5174");
+require_once '../config/cors.php';
+applyCorsOrigin();
 header("Access-Control-Allow-Methods: GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Accept");
 header("Access-Control-Allow-Credentials: true");
@@ -23,9 +24,8 @@ try {
         echo json_encode(['status'=>'fail','success'=>false,'message'=>'Impossible de se connecter à la base de données']);
     }
 } catch (Throwable $e) {
+    error_log('Health check failure: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['status'=>'fail','success'=>false,'message'=>'Erreur serveur : ' . $e->getMessage()]);
+    echo json_encode(['status'=>'fail','success'=>false,'message'=>'Service indisponible']);
 }
 ?>
-
-
