@@ -860,6 +860,15 @@ class ApiService {
     return result;
   }
 
+  async loginDemo() {
+    const result = await this.request('auth.php?action=demo', { method: 'POST' });
+    if (result?.success && result?.data?.token) {
+      setAuthToken(result.data.token);
+      setCsrfToken(result.data.csrf_token);
+    }
+    return result;
+  }
+
   async logout() {
     try {
       return await this.request('auth.php?action=logout', { method: 'POST' });

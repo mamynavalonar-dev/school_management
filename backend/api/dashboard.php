@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once '../config/database.php';
 require_once '../config/auth_guard.php';
 
-if (!in_array($_SESSION['user_role'] ?? '', ['admin', 'directeur'], true)) {
+if (empty($_SESSION['is_public_demo']) && !in_array($_SESSION['user_role'] ?? '', ['admin', 'directeur'], true)) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Accès réservé à la direction.']);
     exit;

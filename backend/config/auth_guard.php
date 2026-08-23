@@ -33,7 +33,7 @@ if ($token) {
     $database = new Database();
     $db = $database->getConnection();
 
-    $query = "SELECT u.id, u.name, u.role
+    $query = "SELECT u.id, u.name, u.username, u.role
               FROM auth_tokens t
               INNER JOIN users u ON u.id = t.user_id
               WHERE t.token = :token
@@ -56,6 +56,7 @@ if ($token) {
     }
 
     $_SESSION['user_id'] = $user['id'];
+    $_SESSION['user_username'] = $user['username'] ?? null;
     $_SESSION['user_role'] = $user['role'];
 } else {
     if (empty($_SESSION['user_id'])) {
@@ -73,7 +74,7 @@ if ($token) {
     require_once __DIR__ . '/database.php';
     $database = new Database();
     $db = $database->getConnection();
-    $query = "SELECT id, name, role FROM users
+    $query = "SELECT id, name, username, role FROM users
               WHERE id = :user_id AND status = 'active' AND deleted_at IS NULL";
     $stmt = $db->prepare($query);
     $stmt->bindParam(':user_id', $_SESSION['user_id']);
@@ -88,7 +89,39 @@ if ($token) {
         exit();
     }
 
+    $_SESSION['user_username'] = $user['username'] ?? null;
     $_SESSION['user_role'] = $user['role'];
+}
+
+$publicDemoEnabled = filter_var(
+    getenv('PUBLIC_DEMO_ENABLED') ?: 'false',
+    FILTER_VALIDATE_BOOLEAN
+);
+$publicDemoUsername = strtolower(trim((string)(getenv('PUBLIC_DEMO_USERNAME') ?: 'portfolio-demo')));
+$isPublicDemo = $publicDemoEnabled
+    && strtolower((string)($_SESSION['user_username'] ?? '')) === $publicDemoUsername;
+$_SESSION['is_public_demo'] = $isPublicDemo;
+
+// Protection globale : même si un composant affiche encore par erreur un
+// bouton d'édition, un visiteur démo ne peut pas modifier les données.
+// Seul ws_ticket est autorisé pour établir le WebSocket de consultation.
+if ($isPublicDemo) {
+    $demoMethod = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    $demoEndpoint = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    $demoAction = (string)($_GET['action'] ?? '');
+    $demoWsTicket = $demoEndpoint === 'messages.php'
+        && $demoAction === 'ws_ticket'
+        && $demoMethod === 'POST';
+
+    if (!in_array($demoMethod, ['GET', 'HEAD', 'OPTIONS'], true) && !$demoWsTicket) {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Mode démo public : les modifications sont désactivées.'
+        ], JSON_UNESCAPED_UNICODE);
+        exit();
+    }
 }
 
 // Contrôle transversal des fonctionnalités. Les endpoints conservent leurs

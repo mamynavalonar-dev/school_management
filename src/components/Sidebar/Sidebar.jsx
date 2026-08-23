@@ -60,7 +60,15 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
   // enseignant/étudiant voient en plus leur propre tableau de bord (en tête
   // de liste pour l'enseignant/étudiant puisque c'est leur écran d'accueil).
   let menuItems = [];
-  if (user?.role === 'admin') {
+  if (user?.is_demo) {
+    const demoAccessibleIds = [
+      'dashboard', 'students', 'teachers', 'courses', 'rooms',
+      'planning', 'evaluations', 'grades', 'absences', 'school-operations',
+    ];
+    menuItems = userMenuItems.filter(
+      (item) => demoAccessibleIds.includes(item.id) && (item.id === 'dashboard' || canViewFeature(user, item.id))
+    );
+  } else if (user?.role === 'admin') {
     menuItems = [...userMenuItems, ...adminMenuItems];
   } else if (user?.role === 'directeur') {
     // La direction crée et administre également les comptes utilisateurs.

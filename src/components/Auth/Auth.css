@@ -361,3 +361,59 @@
     .col-1 { display: none; }
     .col-2 { width: 100%; }
 }
+
+
+/* PUBLIC DEMO V7.24 */
+.public-demo-entry {
+    width: 100%;
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.public-demo-separator {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: .4rem 0 1rem;
+    color: rgba(255, 255, 255, .78);
+}
+
+.public-demo-separator::before,
+.public-demo-separator::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, .26);
+}
+
+.public-demo-button {
+    width: 100%;
+    min-height: 5.2rem;
+    border: 1px solid rgba(255, 255, 255, .45);
+    border-radius: 1rem;
+    color: #fff;
+    background: rgba(255, 255, 255, .14);
+    font: inherit;
+    font-size: 1.45rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .2s ease, background-color .2s ease;
+}
+
+.public-demo-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, .22);
+}
+
+.public-demo-button:disabled {
+    opacity: .65;
+    cursor: wait;
+}
+
+.public-demo-entry small {
+    display: block;
+    margin-top: .8rem;
+    color: rgba(255, 255, 255, .78);
+    font-size: 1.15rem;
+    line-height: 1.45;
+}

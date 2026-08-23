@@ -34,6 +34,27 @@ const Auth = ({ onBack }) => {
     }
   };
 
+  const handleDemoLogin = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await apiService.loginDemo();
+      if (response.success && response.data) {
+        const userData = { ...response.data };
+        delete userData.token;
+        delete userData.csrf_token;
+        setUser(userData);
+      } else {
+        setError(response.message || 'La démonstration est indisponible.');
+      }
+    } catch (err) {
+      setError(err.message || 'La démonstration est indisponible.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="auth-body">
       <button
@@ -123,6 +144,18 @@ const Auth = ({ onBack }) => {
                 </button>
               </div>
             </form>
+            <div className="public-demo-entry">
+              <div className="public-demo-separator"><span>ou</span></div>
+              <button
+                type="button"
+                className="public-demo-button"
+                onClick={handleDemoLogin}
+                disabled={loading}
+              >
+                Tester la démo publique
+              </button>
+              <small>Accès automatique en lecture seule, sans mot de passe.</small>
+            </div>
             {error && <p className="error-message">{error}</p>}
           </div>
         </div>

@@ -8,6 +8,7 @@ import { useApp } from './context/AppContext';
 import TopBar from './components/TopBar/TopBar';
 import { installMessageSoundUnlock } from './utils/messageSound';
 import { canViewFeature } from './utils/permissions';
+import apiService from './services/api';
 
 const Students = lazy(() => import('./components/Students/Students'));
 const Teachers = lazy(() => import('./components/Teachers/Teachers'));
@@ -48,7 +49,7 @@ const AppLoading = () => (
 
 function App() {
   const { activeMenu, setActiveMenu, replaceActiveMenu } = useUi();
-  const { user, sessionChecked } = useApp();
+  const { user, sessionChecked, setUser } = useApp();
   const [appState, setAppState] = useState('landing');
   const [systemDarkMode, setSystemDarkMode] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [themeMode, setThemeMode] = useState(() => {
@@ -72,7 +73,32 @@ function App() {
 
   const darkMode = themeMode === 'system' ? systemDarkMode : themeMode === 'dark';
 
+  const demoAutoLoginStarted = useRef(false);
+
   useEffect(() => installMessageSoundUnlock(), []);
+
+  useEffect(() => {
+    if (!sessionChecked || user || demoAutoLoginStarted.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('demo') !== '1') return;
+
+    demoAutoLoginStarted.current = true;
+    apiService.loginDemo()
+      .then((response) => {
+        if (!response?.success || !response?.data) {
+          throw new Error(response?.message || 'Démo indisponible');
+        }
+        const userData = { ...response.data };
+        delete userData.token;
+        delete userData.csrf_token;
+        setUser(userData);
+      })
+      .catch((error) => {
+        console.error('Connexion démo automatique impossible:', error);
+        setAppState('auth');
+      });
+  }, [sessionChecked, user, setUser]);
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
@@ -161,7 +187,7 @@ function App() {
       setAppState('dashboard');
       if (!hasSetDefaultMenu.current) {
         hasSetDefaultMenu.current = true;
-        replaceActiveMenu(ROLE_DEFAULT_MENU[user.role] ?? 'dashboard');
+        replaceActiveMenu(user?.is_demo ? 'dashboard' : (ROLE_DEFAULT_MENU[user.role] ?? 'dashboard'));
       }
     } else if (appState === 'dashboard') {
       setAppState('auth');
@@ -178,6 +204,7 @@ function App() {
     }
     switch (activeMenu) {
       case 'dashboard':
+        if (user?.is_demo) return <Dashboard />;
         if (user?.role === 'teacher') return <TeacherDashboard />;
         if (user?.role === 'student') return <StudentDashboard />;
         return <Dashboard />;
@@ -216,6 +243,11 @@ function App() {
   if (user) {
     return (
       <div className={`app ${darkMode ? 'dark' : ''}`}>
+        {user?.is_demo && (
+          <div className="public-demo-badge" role="status">
+            Mode démo publique · lecture seule
+          </div>
+        )}
         <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
         <TopBar
           darkMode={darkMode}
