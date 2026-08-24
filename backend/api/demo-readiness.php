@@ -7,7 +7,7 @@ header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Accept');
 header('Access-Control-Allow-Credentials: true');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') { http_response_code(405); echo json_encode(['success'=>false,'status'=>'method_not_allowed']); exit; }
+if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'HEAD'], true)) { http_response_code(405); echo json_encode(['success'=>false,'status'=>'method_not_allowed']); exit; }
 require_once '../config/demo_database_probe.php';
 require_once '../services/AivenWakeService.php';
 if (DemoDatabaseProbe::isReady()) { http_response_code(200); echo json_encode(['success'=>true,'status'=>'ready','message'=>'La démonstration est prête.']); exit; }
